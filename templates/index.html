@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diário de Valadares - Edição Digital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --paper-color: #f9f7f1;
+            --ink-color: #1a1a1a;
+            --border-heavy: #333;
+            --border-light: #ccc;
+            --accent-red: #a00;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #e0ddd5;
+            /* background behind the paper */
+            color: var(--ink-color);
+            font-family: 'Crimson Pro', serif;
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+
+        .newspaper-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: var(--paper-color);
+            padding: 3rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            min-height: 100vh;
+            border: 1px solid #ddd;
+        }
+
+        /* Masthead */
+        header {
+            text-align: center;
+            border-bottom: 4px double var(--border-heavy);
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .masthead-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-heavy);
+            padding: 0.5rem 0;
+            font-family: 'Playfair Display', serif;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        h1.masthead-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 4.5rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin: 1rem 0;
+            line-height: 1;
+            text-transform: capitalize;
+        }
+
+        .masthead-description {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #444;
+        }
+
+        /* Article Structure */
+        .article-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .article-headline {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 0.8rem;
+            color: var(--ink-color);
+        }
+
+        .article-meta {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            border-top: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--border-light);
+            padding: 0.5rem 0;
+            margin: 1rem 0;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            color: #555;
+        }
+
+        .article-content {
+            column-count: 2;
+            column-gap: 3rem;
+            column-rule: 1px solid var(--border-light);
+            text-align: justify;
+            font-size: 1.15rem;
+            hyphens: auto;
+        }
+
+        /* Drop cap */
+        .article-content p:first-of-type::first-letter {
+            float: left;
+            font-family: 'Playfair Display', serif;
+            font-size: 4.5rem;
+            line-height: 1;
+            padding-top: 4px;
+            padding-right: 8px;
+            padding-left: 3px;
+            color: var(--ink-color);
+        }
+
+        .article-content p {
+            margin-bottom: 1rem;
+        }
+
+        .no-content {
+            text-align: center;
+            padding: 5rem 0;
+            font-style: italic;
+            color: #777;
+        }
+
+        footer {
+            margin-top: 4rem;
+            border-top: 1px solid var(--border-heavy);
+            padding-top: 1rem;
+            text-align: center;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+        }
+
+        /* Weather/Price simulated widgets */
+        .widget {
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .article-content {
+                column-count: 1;
+            }
+
+            h1.masthead-title {
+                font-size: 3rem;
+            }
+
+            .newspaper-container {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="newspaper-container">
+        <header>
+            <div class="masthead-top">
+                <div class="widget">VALADARES, MG</div>
+                <div class="widget">{{ post.date if post else "AGUARDANDO" }}</div>
+                <div class="widget">EDIÇÃO Nº 01</div>
+            </div>
+
+            <h1 class="masthead-title">O Diário Reduzido</h1>
+            <p class="masthead-description">A síntese matinal do Diário Oficial de Governador Valadares</p>
+        </header>
+
+        {% if post %}
+        <article>
+            <div class="article-header">
+                <h2 class="article-headline">{{ post.title }}</h2>
+                <div class="article-meta">
+                    <span><strong>Por:</strong> Inteligência Artificial</span>
+                    <span><strong>Fonte:</strong> Portal da Transparência</span>
+                </div>
+            </div>
+
+            <div class="article-content" id="article-text" style="display: none;">{{ post.content }}</div>
+            <div class="article-content" id="rendered-content"></div>
+
+            <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const rawContent = document.getElementById('article-text').textContent;
+                    // Configure marked options if needed (e.g. breaks: true)
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true
+                    });
+                    document.getElementById('rendered-content').innerHTML = marked.parse(rawContent);
+                });
+            </script>
+
+            <div
+                style="margin-top: 2rem; font-size: 0.8rem; border-top: 1px dashed #ccc; padding-top: 1rem; color: #888;">
+                <em>Este resumo foi gerado pelo modelo {{ post.model }} com base no PDF oficial.</em>
+                {% if post.pdf_link %}
+                <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--ink-color);">
+                    Fonte: <a href="{{ post.pdf_link }}" target="_blank" style="color: var(--accent-red); text-decoration: underline;">{{ post.pdf_link }}</a>
+                </div>
+                {% endif %}
+            </div>
+        </article>
+        {% else %}
+        <div class="no-content">
+            <h3>Extraordinário!</h3>
+            <p>O Diário de hoje ainda está sendo redigido pelas máquinas...</p>
+            <p style="margin-top: 1rem; font-size: 0.9rem;">Verificamos automaticamente a cada hora no Portal da
+                Prefeitura.</p>
+        </div>
+        {% endif %}
+
+        <footer>
+            &copy; 2026 O Diário Reduzido - Todos os direitos reservados.
+        </footer>
+    </div>
+</body>
+
+</html>
