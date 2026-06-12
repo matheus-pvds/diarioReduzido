@@ -1,3 +1,4 @@
+import io
 import json
 import time
 from datetime import datetime
@@ -14,35 +15,36 @@ class GeminiClient:
             raise ValueError("GEMINI_API_KEY deve estar configurada no arquivo .env")
         self.client = genai.Client(api_key=self.api_key)
 
-    def process_pdf(self, pdf_path, prompt="Resuma de forma detalhada e objetiva as principais decisões, nomeações e editais deste diário oficial. Importante: quantifique e conte todos os atos repetitivos (por exemplo, se houver rescisões de contrato ou nomeações, conte e informe o número total exato de servidores afetados em vez de usar termos vagos como 'muitos' ou 'vários'). VOCÊ DEVE RESPONDER APENAS EM PORTUGUÊS DO BRASIL. NÃO USE INGLÊS EM NENHUMA HIPÓTESE."):
+    def process_pdf(self, pdf_data, prompt="Resuma de forma detalhada e objetiva as principais decisões, nomeações e editais deste diário oficial. Importante: quantifique e conte todos os atos repetitivos (por exemplo, se houver rescisões de contrato ou nomeações, conte e informe o número total exato de servidores afetados em vez de usar termos vagos como 'muitos' ou 'vários'). VOCÊ DEVE RESPONDER APENAS EM PORTUGUÊS DO BRASIL. NÃO USE INGLÊS EM NENHUMA HIPÓTESE."):
         """
-        Processes a PDF file using Gemini with dynamic failover.
+        Processes PDF bytes using Gemini with dynamic failover and in-memory streaming.
         """
-        try:
-            # Fetch models dynamically
-            available_models = self.client.models.list()
-            gemini_models = [
-                m.name for m in available_models 
-                if 'gemini' in m.name.lower() 
-                and 'generateContent' in getattr(m, 'supported_actions', [])
-            ]
-            # Prioritize newer and Pro models
-            gemini_models.sort(reverse=True)
-            
-            if not gemini_models:
-                gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash"]
-        except Exception as e:
-            print(f"Erro ao listar modelos: {e}")
-            gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash"]
+        # Lista estática ordenada do "pior" (lite/rápido) para o "melhor" (pro/robusto)
+        # Evita latência de rede consultando a API de modelos em ambiente serverless.
+        gemini_models = [
+            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-3.1-pro-preview",
+            "gemini-2.5-pro"
+        ]
 
         # 1. Upload the file
-        print(f"Enviando PDF: {pdf_path}...")
-        uploaded_file = self.client.files.upload(file=pdf_path)
+        print("Enviando PDF para processamento em memória...")
+        pdf_io = io.BytesIO(pdf_data)
+        # We provide a config to help the API identify the file type since there is no filename
+        uploaded_file = self.client.files.upload(
+            file=pdf_io, 
+            config={'mime_type': 'application/pdf', 'display_name': 'diary.pdf'}
+        )
         
         # 2. Wait for processing
         while uploaded_file.state.name == "PROCESSING":
             print("Processando arquivo, aguardando...")
-            time.sleep(2)
+            time.sleep(1) # Reduced sleep for faster response
             uploaded_file = self.client.files.get(name=uploaded_file.name)
 
         last_error = None

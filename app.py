@@ -4,7 +4,7 @@ from processor import GeminiClient
 import os
 import requests
 import bs4
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
 app = Flask(__name__)
@@ -23,8 +23,19 @@ class Post(db.Model):
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
 
+# Database Model for Application Configuration
+class AppConfig(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), unique=True, nullable=False)
+    value = db.Column(db.String(500))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
 with app.app_context():
     db.create_all()
+    # Initialize AppConfig entries if they don't exist
+    if not AppConfig.query.filter_by(key='last_checked_timestamp').first():
+        db.session.add(AppConfig(key='last_checked_timestamp', value=datetime.min.isoformat()))
+        db.session.commit()
 
 def fetch_daily_diary():
     """
@@ -50,10 +61,10 @@ def fetch_daily_diary():
         print(f"Erro ao buscar diário: {e}")
         return None
 
-@app.route('/api/cron/update')
-def update_diary_cron():
+def perform_update_logic():
     """
-    Endpoint to be triggered by Vercel Cron hourly.
+    Checks for a new daily diary PDF and processes it if found.
+    Returns a dictionary with status and message.
     """
     # Security check for Vercel Cron (optional but recommended)
     # auth_header = request.headers.get('Authorization')
@@ -61,8 +72,10 @@ def update_diary_cron():
     #     return "Unauthorized", 401
 
     now = datetime.now()
+    print(f"[{now.strftime('%H:%M:%S')}] Iniciando verificação e processamento de diário...")
     
     # Get the last processed link from DB
+    # This uses the Post table to determine the last processed PDF link.
     last_post = Post.query.order_by(Post.id.desc()).first()
     last_link = last_post.pdf_link if last_post else ""
 
@@ -72,20 +85,17 @@ def update_diary_cron():
     if current_link and current_link != last_link:
         print(f"Novo diário encontrado: {current_link}")
         
-        # Download PDF to /tmp (Vercel's only writable directory)
-        pdf_path = '/tmp/diary.pdf'
         try:
-            pdf_content = requests.get(current_link).content
-            with open(pdf_path, 'wb') as f:
-                f.write(pdf_content)
+            # Fetch PDF content directly into memory
+            pdf_content = requests.get(current_link, timeout=60).content
             
             # Process with Gemini
             gemini = GeminiClient()
-            summary, model_name = gemini.process_pdf(pdf_path)
+            summary, model_name = gemini.process_pdf(pdf_content)
             
             # Save to SQL Database
             new_post = Post(
-                title=f"Resumo Diário - {now.strftime('%d/%m/%Y')}",
+                title=f"Resumo Diário - {now.strftime('%d/%m/%Y %H:%M')}", # Include time in title
                 content=summary,
                 model=model_name,
                 pdf_link=current_link
@@ -93,14 +103,36 @@ def update_diary_cron():
             db.session.add(new_post)
             db.session.commit()
             
-            return jsonify({"status": "success", "message": "Blog atualizado!"})
+            return {"status": "success", "message": "Blog atualizado!"}
         except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
+            print(f"Erro durante o processamento: {e}")
+            db.session.rollback() # Rollback in case of error during DB operations
+            return {"status": "error", "message": str(e)}
     else:
-        return jsonify({"status": "no_change", "message": "Nenhum diário novo disponível."})
+        print("Nenhum diário novo disponível ou link inalterado.")
+        return {"status": "no_change", "message": "Nenhum diário novo disponível."}
 
 @app.route('/')
 def index():
+    """
+    Main route that performs a 'Lazy Check'. 
+    It only checks for updates if the last check was more than an hour ago.
+    """
+    now = datetime.now()
+    
+    # Serverless Logic: Check if we need to refresh based on DB timestamp
+    last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
+    last_time = datetime.fromisoformat(last_check.value) if last_check else datetime.min
+
+    if (now - last_time) > timedelta(hours=1):
+        print(f"[{now.strftime('%H:%M:%S')}] Serverless check: Hora de verificar atualizações...")
+        perform_update_logic()
+        
+        # Update the timestamp regardless of whether a new PDF was found
+        if last_check:
+            last_check.value = now.isoformat()
+            db.session.commit()
+
     # Fetch latest post from DB
     post = Post.query.order_by(Post.id.desc()).first()
     return render_template('index.html', post=post)
