@@ -10,6 +10,8 @@ from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 BRT = ZoneInfo("America/Sao_Paulo")
+# Definindo GMT-3 de forma absoluta para garantir compatibilidade em ambientes serverless
+BRT = timezone(timedelta(hours=-3))
 
 
 # Database Configuration (Vercel provides POSTGRES_URL)
@@ -23,6 +25,7 @@ class Post(db.Model):
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     date = db.Column(db.DateTime, default=lambda: datetime.now(BRT))
+    date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
 
@@ -32,6 +35,7 @@ class AppConfig(db.Model):
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(BRT))
+    timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
 
 with app.app_context():
     db.create_all()
