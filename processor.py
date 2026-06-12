@@ -1,9 +1,9 @@
 import json
-import os
 import time
 from datetime import datetime
 from google import genai
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -86,24 +86,3 @@ class GeminiClient:
             pass
             
         return "Desculpe, não foi possível gerar o resumo automático no momento devido a limites de quota. Por favor, tente novamente mais tarde.", "indisponível"
-
-def post_to_blog(title, content, model_used, pdf_link=None):
-    """
-    Saves a blog post to a JSON file (single entry only).
-    """
-    posts_file = os.path.join(os.path.dirname(__file__), 'posts.json')
-    
-    new_post = {
-        "id": 1,
-        "title": title,
-        "content": content,
-        "date": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-        "model": model_used,
-        "pdf_link": pdf_link
-    }
-    
-    # Overwrite with only the latest post
-    with open(posts_file, 'w', encoding='utf-8') as f:
-        json.dump([new_post], f, indent=4, ensure_ascii=False)
-    
-    return new_post

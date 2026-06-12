@@ -1,17 +1,30 @@
-from flask import Flask, render_template, jsonify
-from processor import GeminiClient, post_to_blog
+from flask import Flask, render_template, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
+from processor import GeminiClient
 import os
-import json
 import requests
 import bs4
-import time
-import threading
 from datetime import datetime
+from urllib.parse import urljoin
 
 app = Flask(__name__)
 
-POSTS_FILE = os.path.join(os.path.dirname(__file__), 'posts.json')
-LAST_PROCESSED_FILE = os.path.join(os.path.dirname(__file__), 'last_pdf.txt')
+# Database Configuration (Vercel provides POSTGRES_URL)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('POSTGRES_URL', 'sqlite:///local.db').replace("postgres://", "postgresql://")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Database Model
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    model = db.Column(db.String(100))
+    pdf_link = db.Column(db.String(500))
+
+with app.app_context():
+    db.create_all()
 
 def fetch_daily_diary():
     """
@@ -27,7 +40,6 @@ def fetch_daily_diary():
         
         if botao_pdf and botao_pdf.get('href'):
             # Resolve relative link to the root domain
-            from urllib.parse import urljoin
             link = urljoin('https://www.valadares.mg.gov.br', botao_pdf['href'])
         else:
             link = None
@@ -38,79 +50,60 @@ def fetch_daily_diary():
         print(f"Erro ao buscar diário: {e}")
         return None
 
-def background_scheduler():
+@app.route('/api/cron/update')
+def update_diary_cron():
     """
-    Background task to check for new PDFs and update the blog.
-    Runs hourly, but prioritizes checks after 09:00 AM.
+    Endpoint to be triggered by Vercel Cron hourly.
     """
-    print("Iniciando agendador em segundo plano...")
-    # Realiza uma verificação imediata ao iniciar
-    primeira_execucao = True
+    # Security check for Vercel Cron (optional but recommended)
+    # auth_header = request.headers.get('Authorization')
+    # if auth_header != f"Bearer {os.getenv('CRON_SECRET')}":
+    #     return "Unauthorized", 401
+
+    now = datetime.now()
     
-    while True:
-        if not primeira_execucao:
-            time.sleep(3600) # Espera uma hora nas rodadas seguintes
-        primeira_execucao = False
-        
-        now = datetime.now()
-        
-        # Load last processed link
-        last_link = ""
-        if os.path.exists(LAST_PROCESSED_FILE):
-            with open(LAST_PROCESSED_FILE, 'r') as f:
-                last_link = f.read().strip()
+    # Get the last processed link from DB
+    last_post = Post.query.order_by(Post.id.desc()).first()
+    last_link = last_post.pdf_link if last_post else ""
 
-        # Check if it's past 09:00 AM
-        if now.hour >= 9:
-            print(f"[{now.strftime('%H:%M:%S')}] Verificando novo diário...")
-            current_link = fetch_daily_diary()
+    print(f"[{now.strftime('%H:%M:%S')}] Verificando novo diário...")
+    current_link = fetch_daily_diary()
+    
+    if current_link and current_link != last_link:
+        print(f"Novo diário encontrado: {current_link}")
+        
+        # Download PDF to /tmp (Vercel's only writable directory)
+        pdf_path = '/tmp/diary.pdf'
+        try:
+            pdf_content = requests.get(current_link).content
+            with open(pdf_path, 'wb') as f:
+                f.write(pdf_content)
             
-            if current_link and current_link != last_link:
-                print(f"Novo diário encontrado: {current_link}")
-                
-                # Download PDF
-                pdf_path = os.path.join(os.path.dirname(__file__), 'diary.pdf')
-                try:
-                    pdf_content = requests.get(current_link).content
-                    with open(pdf_path, 'wb') as f:
-                        f.write(pdf_content)
-                    
-                    # Process with Gemini
-                    gemini = GeminiClient()
-                    summary, model = gemini.process_pdf(pdf_path)
-                    
-                    # Post to blog
-                    post_to_blog(f"Resumo Diário - {now.strftime('%d/%m/%Y')}", summary, model, current_link)
-                    
-                    # Update last processed link
-                    with open(LAST_PROCESSED_FILE, 'w') as f:
-                        f.write(current_link)
-                    
-                    print("Blog atualizado com sucesso!")
-                except Exception as e:
-                    print(f"Erro no processamento automático: {e}")
-            else:
-                print("Nenhum diário novo disponível ou já processado hoje.")
-        
-        # Sleep for an hour before next check
-        # (Could be shorter if we want to be more proactive between 09:00 and 10:00)
-        time.sleep(3600)
-
-# Start background scheduler thread
-daemon = threading.Thread(target=background_scheduler, daemon=True)
-daemon.start()
+            # Process with Gemini
+            gemini = GeminiClient()
+            summary, model_name = gemini.process_pdf(pdf_path)
+            
+            # Save to SQL Database
+            new_post = Post(
+                title=f"Resumo Diário - {now.strftime('%d/%m/%Y')}",
+                content=summary,
+                model=model_name,
+                pdf_link=current_link
+            )
+            db.session.add(new_post)
+            db.session.commit()
+            
+            return jsonify({"status": "success", "message": "Blog atualizado!"})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        return jsonify({"status": "no_change", "message": "Nenhum diário novo disponível."})
 
 @app.route('/')
 def index():
-    posts = []
-    if os.path.exists(POSTS_FILE):
-        with open(POSTS_FILE, 'r', encoding='utf-8') as f:
-            posts = json.load(f)
-    
-    # Ensure we only show the latest post if any
-    latest_post = posts[0] if posts else None
-    return render_template('index.html', post=latest_post)
+    # Fetch latest post from DB
+    post = Post.query.order_by(Post.id.desc()).first()
+    return render_template('index.html', post=post)
 
 if __name__ == '__main__':
-    # Use use_reloader=False when starting background threads in the same process
-    app.run(debug=True, port=5000, use_reloader=False)
+    app.run(debug=True, port=5000)

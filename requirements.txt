@@ -1,0 +1,9 @@
+flask
+flask-sqlalchemy
+psycopg2-binary
+google-genai
+python-dotenv
+requests
+beautifulsoup4
+gunicorn
+markupsafe
