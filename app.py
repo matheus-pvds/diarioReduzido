@@ -4,10 +4,13 @@ from processor import GeminiClient
 import os
 import requests
 import bs4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
+BRT = ZoneInfo("America/Sao_Paulo")
+
 
 # Database Configuration (Vercel provides POSTGRES_URL)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('POSTGRES_URL', 'sqlite:///local.db').replace("postgres://", "postgresql://")
@@ -19,7 +22,7 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    date = db.Column(db.DateTime, default=datetime.utcnow)
+    date = db.Column(db.DateTime, default=lambda: datetime.now(BRT))
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
 
@@ -28,13 +31,13 @@ class AppConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.String(500))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(BRT))
 
 with app.app_context():
     db.create_all()
     # Initialize AppConfig entries if they don't exist
     if not AppConfig.query.filter_by(key='last_checked_timestamp').first():
-        db.session.add(AppConfig(key='last_checked_timestamp', value=datetime.min.isoformat()))
+        db.session.add(AppConfig(key='last_checked_timestamp', value=datetime(1970, 1, 1, tzinfo=BRT).isoformat()))
         db.session.commit()
 
 def fetch_daily_diary():
@@ -66,12 +69,7 @@ def perform_update_logic():
     Checks for a new daily diary PDF and processes it if found.
     Returns a dictionary with status and message.
     """
-    # Security check for Vercel Cron (optional but recommended)
-    # auth_header = request.headers.get('Authorization')
-    # if auth_header != f"Bearer {os.getenv('CRON_SECRET')}":
-    #     return "Unauthorized", 401
-
-    now = datetime.now()
+    now = datetime.now(BRT)
     print(f"[{now.strftime('%H:%M:%S')}] Iniciando verificação e processamento de diário...")
     
     # Get the last processed link from DB
@@ -118,11 +116,17 @@ def index():
     Main route that performs a 'Lazy Check'. 
     It only checks for updates if the last check was more than an hour ago.
     """
-    now = datetime.now()
+    now = datetime.now(BRT)
     
     # Serverless Logic: Check if we need to refresh based on DB timestamp
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
-    last_time = datetime.fromisoformat(last_check.value) if last_check else datetime.min
+    
+    if last_check:
+        last_time = datetime.fromisoformat(last_check.value)
+        if last_time.tzinfo is None:
+            last_time = last_time.replace(tzinfo=BRT)
+    else:
+        last_time = datetime(1970, 1, 1, tzinfo=BRT)
 
     if (now - last_time) > timedelta(hours=1):
         print(f"[{now.strftime('%H:%M:%S')}] Serverless check: Hora de verificar atualizações...")
