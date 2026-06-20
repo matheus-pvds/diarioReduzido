@@ -19,17 +19,16 @@ class GeminiClient:
         """
         Processes PDF bytes using Gemini with dynamic failover and in-memory streaming.
         """
-        # Lista estática ordenada do "pior" (lite/rápido) para o "melhor" (pro/robusto)
         # Evita latência de rede consultando a API de modelos em ambiente serverless.
         gemini_models = [
+            "gemini-3.1-pro-preview",
+            "gemini-3.5-flash",
             "gemini-3.1-flash-lite",
             "gemini-2.5-flash-lite",
             "gemini-2.0-flash-lite",
-            "gemini-3.5-flash",
             "gemini-2.5-flash",
             "gemini-2.0-flash",
-            "gemini-3.1-pro-preview",
-            "gemini-2.5-pro"
+            
         ]
 
         # 1. Upload the file
