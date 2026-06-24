@@ -9,55 +9,45 @@ from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
-BRT = ZoneInfo("America/Sao_Paulo")
 # Definindo GMT-3 de forma absoluta para garantir compatibilidade em ambientes serverless
 BRT = timezone(timedelta(hours=-3))
 
-
-# Database Configuration (Vercel provides POSTGRES_URL)
+# Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('POSTGRES_URL', 'sqlite:///local.db').replace("postgres://", "postgresql://")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# Database Model
+# Database Model (Removida a duplicidade de colunas)
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    date = db.Column(db.DateTime, default=lambda: datetime.now(BRT))
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
 
-# Database Model for Application Configuration
+# Database Model for Application Configuration (Removida a duplicidade de colunas)
 class AppConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.String(500))
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(BRT))
     timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
 
 with app.app_context():
     db.create_all()
-    # Initialize AppConfig entries if they don't exist
     if not AppConfig.query.filter_by(key='last_checked_timestamp').first():
         db.session.add(AppConfig(key='last_checked_timestamp', value=datetime(1970, 1, 1, tzinfo=BRT).isoformat()))
         db.session.commit()
 
 def fetch_daily_diary():
-    """
-    Logic ported from main.py to fetch the latest municipal gazette.
-    """
     url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     try:
         response = requests.get(url, timeout=30)
         soup = bs4.BeautifulSoup(response.text, "html.parser")
-        # Use CSS selector to match multiple classes correctly
         botao_pdf = soup.select_one('a.btn-primary.arquivo-pdf')
         print(f"Botão encontrado: {botao_pdf}")
         
         if botao_pdf and botao_pdf.get('href'):
-            # Resolve relative link to the root domain
             link = urljoin('https://www.valadares.mg.gov.br', botao_pdf['href'])
         else:
             link = None
@@ -69,15 +59,9 @@ def fetch_daily_diary():
         return None
 
 def perform_update_logic():
-    """
-    Checks for a new daily diary PDF and processes it if found.
-    Returns a dictionary with status and message.
-    """
     now = datetime.now(BRT)
     print(f"[{now.strftime('%H:%M:%S')}] Iniciando verificação e processamento de diário...")
     
-    # Get the last processed link from DB
-    # This uses the Post table to determine the last processed PDF link.
     last_post = Post.query.order_by(Post.id.desc()).first()
     last_link = last_post.pdf_link if last_post else ""
 
@@ -88,16 +72,14 @@ def perform_update_logic():
         print(f"Novo diário encontrado: {current_link}")
         
         try:
-            # Fetch PDF content directly into memory
             pdf_content = requests.get(current_link, timeout=60).content
             
-            # Process with Gemini
+            # Instancia o cliente corrigido que faz a chamada Inline
             gemini = GeminiClient()
             summary, model_name = gemini.process_pdf(pdf_content)
             
-            # Save to SQL Database
             new_post = Post(
-                title=f"Resumo Diário - {now.strftime('%d/%m/%Y %H:%M')}", # Include time in title
+                title=f"Resumo Diário - {now.strftime('%d/%m/%Y %H:%M')}",
                 content=summary,
                 model=model_name,
                 pdf_link=current_link
@@ -108,7 +90,7 @@ def perform_update_logic():
             return {"status": "success", "message": "Blog atualizado!"}
         except Exception as e:
             print(f"Erro durante o processamento: {e}")
-            db.session.rollback() # Rollback in case of error during DB operations
+            db.session.rollback()
             return {"status": "error", "message": str(e)}
     else:
         print("Nenhum diário novo disponível ou link inalterado.")
@@ -116,13 +98,7 @@ def perform_update_logic():
 
 @app.route('/')
 def index():
-    """
-    Main route that performs a 'Lazy Check'. 
-    It only checks for updates if the last check was more than an hour ago.
-    """
     now = datetime.now(BRT)
-    
-    # Serverless Logic: Check if we need to refresh based on DB timestamp
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     
     if last_check:
@@ -136,12 +112,10 @@ def index():
         print(f"[{now.strftime('%H:%M:%S')}] Serverless check: Hora de verificar atualizações...")
         perform_update_logic()
         
-        # Update the timestamp regardless of whether a new PDF was found
         if last_check:
             last_check.value = now.isoformat()
             db.session.commit()
 
-    # Fetch latest post from DB
     post = Post.query.order_by(Post.id.desc()).first()
     return render_template('index.html', post=post)
 
