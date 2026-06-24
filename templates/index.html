@@ -188,6 +188,18 @@
             <p class="masthead-description">A síntese matinal do Diário Oficial de Governador Valadares</p>
         </header>
 
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages" style="margin-bottom: 2rem;">
+              {% for category, message in messages %}
+                <div class="flash-message alert-{{ category }}" style="padding: 10px; border: 1px solid var(--border-light); background-color: {% if category == 'success' %}#e2f0d9{% elif category == 'danger' %}#fce4d6{% else %}#fff2cc{% endif %}; margin-bottom: 0.5rem; font-size: 0.9rem; text-align: center; font-family: sans-serif;">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
         {% if post %}
         <article>
             <div class="article-header">
@@ -232,6 +244,67 @@
                 Prefeitura.</p>
         </div>
         {% endif %}
+
+        <!-- Seção de Acesso Restrito e Arquivo de Diários -->
+        <section class="restricted-section" style="margin-top: 4rem; border-top: 4px double var(--border-heavy); padding-top: 2rem;">
+            <h3 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 1.5rem;">
+                Arquivo Histórico &amp; Controle
+            </h3>
+            
+            {% if session.get('logged_in') %}
+                <div class="logged-in-panel" style="text-align: center; margin-bottom: 2rem;">
+                    <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">
+                        Autenticado como: <strong>{{ session.get('username') }}</strong>
+                    </p>
+                    <a href="{{ url_for('logout') }}" style="display: inline-block; padding: 0.35rem 1rem; border: 1px solid var(--border-heavy); color: var(--ink-color); text-decoration: none; font-size: 0.9rem; text-transform: uppercase; background-color: transparent; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#eae5da'" onmouseout="this.style.backgroundColor='transparent'">
+                        Sair do Sistema
+                    </a>
+                </div>
+
+                <div class="archive-panel">
+                    <h4 style="font-family: 'Playfair Display', serif; font-size: 1.2rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+                        Edições Armazenadas
+                    </h4>
+                    {% if previous_posts %}
+                        <ul style="list-style-type: none; padding-left: 0; display: grid; grid-template-columns: 1fr; gap: 0.75rem;">
+                            {% for prev in previous_posts %}
+                            <li style="border-bottom: 1px dashed var(--border-light); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                                <a href="{{ url_for('index', id=prev.id) }}" style="color: var(--ink-color); text-decoration: none; font-weight: {% if post and post.id == prev.id %}bold{% else %}normal{% endif %};">
+                                    {% if post and post.id == prev.id %}&raquo; {% endif %}{{ prev.title }}
+                                </a>
+                                <span style="font-size: 0.85rem; color: #666;">
+                                    {{ prev.date.strftime('%d/%m/%Y') if prev.date else '' }} 
+                                    <span style="font-size: 0.75rem; background: #eee; padding: 2px 6px; border-radius: 3px; margin-left: 0.5rem;">{{ prev.model }}</span>
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p style="font-style: italic; color: #666;">Nenhum diário anterior no banco de dados.</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="login-panel" style="max-width: 400px; margin: 0 auto; padding: 1.5rem; border: 1px solid var(--border-light); background-color: rgba(0,0,0,0.02);">
+                    <h4 style="font-family: 'Playfair Display', serif; text-align: center; margin-bottom: 1rem; font-size: 1.1rem; text-transform: uppercase;">
+                        Acesso ao Arquivo
+                    </h4>
+                    <form action="{{ url_for('login') }}" method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
+                        {{ form.hidden_tag() }}
+                        <div>
+                            <label for="username" style="display: block; font-size: 0.9rem; margin-bottom: 0.25rem; font-weight: bold;">Usuário</label>
+                            {{ form.username(class="form-control", style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-heavy); background-color: var(--paper-color); color: var(--ink-color); font-family: inherit;") }}
+                        </div>
+                        <div>
+                            <label for="password" style="display: block; font-size: 0.9rem; margin-bottom: 0.25rem; font-weight: bold;">Senha</label>
+                            {{ form.password(class="form-control", style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-heavy); background-color: var(--paper-color); color: var(--ink-color); font-family: inherit;") }}
+                        </div>
+                        <div style="text-align: center; margin-top: 0.5rem;">
+                            {{ form.submit(style="padding: 0.5rem 2rem; border: 1px solid var(--border-heavy); background-color: var(--ink-color); color: var(--paper-color); font-family: 'Playfair Display', serif; font-size: 1rem; cursor: pointer; text-transform: uppercase; width: 100%; transition: opacity 0.2s;") }}
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+        </section>
 
         <footer>
             &copy; 2026 O Diário Reduzido - Todos os direitos reservados.
