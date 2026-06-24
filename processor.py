@@ -21,7 +21,6 @@ class GeminiClient:
         """
         # Evita latência de rede consultando a API de modelos em ambiente serverless.
         gemini_models = [
-            "gemini-3.1-pro-preview",
             "gemini-3.5-flash",
             "gemini-3.1-flash-lite",
             "gemini-2.5-flash-lite",
