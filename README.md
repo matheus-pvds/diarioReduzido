@@ -1,5 +1,13 @@
 # diárioReduzido — Enhanced Municipal Gazette Summarizer
 
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.0-black?logo=flask)
+![Gemini AI](https://img.shields.io/badge/Gemini_AI-4285F4?logo=googlegemini&logoColor=white)
+![BeautifulSoup](https://img.shields.io/badge/BeautifulSoup-4-5B4638?logo=Python&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Werkzeug](https://img.shields.io/badge/Werkzeug-3.0-00ADD8?logo=python&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?logo=vercel&logoColor=white)
+
 A feature-enhanced fork of `Diario_reduzido`. Adds **user authentication** (Werkzeug hashed passwords, session-based login) and **Flask-WTF forms** for secure access to municipal gazette AI summaries from **Governador Valadares (MG, Brazil)**.
 
 ## Features (inherits all from Diario_reduzido)
