@@ -54,8 +54,27 @@ class LoginAttempt(db.Model):
     timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     success = db.Column(db.Boolean, default=False)
 
+def migrate_columns():
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
+                               ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
+        existing = {c['name'] for c in inspector.get_columns(table_name)}
+        for col in model.__table__.columns:
+            if col.name not in existing:
+                col_type = col.type.compile(db.engine.dialect)
+                default = ''
+                if hasattr(col, 'default') and col.default is not None:
+                    if callable(col.default.arg):
+                        default = ''
+                    else:
+                        default = f" DEFAULT {col.default.arg!r}" if not isinstance(col.default.arg, (list, dict)) else ''
+                db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}{default}'))
+    db.session.commit()
+
 with app.app_context():
     db.create_all()
+    migrate_columns()
     admin_pass = os.getenv('ADMIN_PASSWORD', 'admin')
     if not User.query.filter_by(username='admin').first():
         db.session.add(User(username='admin', password=generate_password_hash(admin_pass)))
