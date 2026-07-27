@@ -97,18 +97,23 @@ def ensure_constraints():
     for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
                                ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
         existing = {c['name'] for c in inspector.get_columns(table_name)}
+        existing_ucs = {uc['name'] for uc in inspector.get_unique_constraints(table_name)}
         for col in model.__table__.columns:
-            if col.name in existing and not col.nullable:
+            if col.name not in existing:
+                continue
+            null_info = [c for c in inspector.get_columns(table_name) if c['name'] == col.name]
+            if null_info and null_info[0].get('nullable', True) != col.nullable:
                 try:
-                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" SET NOT NULL'))
+                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" {"SET" if not col.nullable else "DROP"} NOT NULL'))
                 except Exception:
-                    pass
-            if col.name in existing and col.unique:
+                    db.session.rollback()
+            if col.unique:
                 constraint_name = f'{table_name}_{col.name}_key'
-                try:
-                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{constraint_name}" UNIQUE ("{col.name}")'))
-                except Exception:
-                    pass
+                if constraint_name not in existing_ucs:
+                    try:
+                        db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{constraint_name}" UNIQUE ("{col.name}")'))
+                    except Exception:
+                        db.session.rollback()
 
 def migrate_columns():
     from sqlalchemy import inspect
