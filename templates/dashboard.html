@@ -266,13 +266,13 @@
         {% if purchasable_themes %}
         <div class="card">
             <h2>&#127912; Loja de Temas</h2>
-            <p style="font-size:0.85rem; color:#888; margin-bottom:1rem;">Compre temas que você ainda não desbloqueou por streak. Preços progressivos — do simbólico (R$1) ao exclusivo (R$50).</p>
+            <p style="font-size:0.85rem; color:#888; margin-bottom:1rem;">Compre temas que você ainda não desbloqueou por streak. Preços variam conforme sua streak — quanto mais perto, mais barato.</p>
             {% for tid, tname, already in purchasable_themes %}
             <div style="display:inline-flex;align-items:center;gap:0.3rem;margin:0.2rem;">
                 {% if already %}
                 <span style="font-size:0.8rem;padding:0.3rem 0.6rem;border:1px solid var(--green);border-radius:4px;color:var(--green);">&#10003; {{ tname }}</span>
                 {% else %}
-                {% set price = get_theme_price(tid) %}
+                {% set price = get_theme_price(tid, user.streak_count or 0) %}
                 <a href="/planos" style="color:var(--accent-red);font-size:0.8rem;text-decoration:none;border:1px dashed var(--border-light);padding:0.3rem 0.6rem;border-radius:4px;display:inline-block;">{{ tname }} — R${{ '%.2f'|format(price) }}</a>
                 {% endif %}
             </div>
