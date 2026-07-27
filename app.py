@@ -91,6 +91,25 @@ COLUMN_RENAMES = {
     'favorite': [('post_id_old', 'post_id')],
 }
 
+def ensure_constraints():
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
+                               ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
+        existing = {c['name'] for c in inspector.get_columns(table_name)}
+        for col in model.__table__.columns:
+            if col.name in existing and not col.nullable:
+                try:
+                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col.name}" SET NOT NULL'))
+                except Exception:
+                    pass
+            if col.name in existing and col.unique:
+                constraint_name = f'{table_name}_{col.name}_key'
+                try:
+                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{constraint_name}" UNIQUE ("{col.name}")'))
+                except Exception:
+                    pass
+
 def migrate_columns():
     from sqlalchemy import inspect
     inspector = inspect(db.engine)
@@ -129,9 +148,14 @@ def migrate_columns():
 with app.app_context():
     db.create_all()
     migrate_columns()
+    ensure_constraints()
     admin_pass = os.getenv('ADMIN_PASSWORD', 'admin')
-    if not User.query.filter_by(username='admin').first():
+    admin_user = User.query.filter_by(username='admin').first()
+    if not admin_user:
         db.session.add(User(username='admin', email=os.getenv('ADMIN_EMAIL', 'admin@diario.app'), password=generate_password_hash(admin_pass), email_verified=True))
+    elif not admin_user.email:
+        admin_user.email = os.getenv('ADMIN_EMAIL', 'admin@diario.app')
+        admin_user.email_verified = True
     if not AppConfig.query.filter_by(key='last_checked_timestamp').first():
         db.session.add(AppConfig(key='last_checked_timestamp', value=datetime(1970, 1, 1, tzinfo=BRT).isoformat()))
     if not AppConfig.query.filter_by(key='is_checking').first():
