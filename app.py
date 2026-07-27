@@ -6,13 +6,10 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import json, os, requests, bs4, secrets, random, smtplib
 from datetime import datetime, timedelta, timezone
-import re, markdown
+import re, markdown, time, traceback
 from urllib.parse import urljoin
 from email.mime.text import MIMEText
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import time, traceback
+import bs4
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', os.urandom(24).hex())
@@ -128,6 +125,49 @@ BADGES = {
 }
 
 BADGE_PRICE = 15.00
+
+COMBOS = {
+    'combo_starter': {
+        'name': 'Combo Iniciante',
+        'price': 120.00,
+        'plan': '1mes',
+        'themes': ['dark'],
+        'freezes': 0,
+        'badge': None,
+        'desc': '1 mês de acesso + tema Dark',
+        'savings': 35,
+    },
+    'combo_popular': {
+        'name': 'Combo Trimestral+',
+        'price': 95.00,
+        'plan': '3meses',
+        'themes': ['dark', 'sepia'],
+        'freezes': 0,
+        'badge': None,
+        'desc': '3 meses + temas Dark e Sépia',
+        'savings': 25,
+    },
+    'combo_annual_plus': {
+        'name': 'Combo Anual Premium',
+        'price': 490.00,
+        'plan': '12meses',
+        'themes': ['dark', 'sepia', 'matrix', 'ocean'],
+        'freezes': 0,
+        'badge': None,
+        'desc': '1 ano + 4 temas exclusivos',
+        'savings': 130,
+    },
+    'combo_freeze': {
+        'name': 'Combo Congelamento',
+        'price': 150.00,
+        'plan': '3meses',
+        'themes': [],
+        'freezes': 5,
+        'badge': None,
+        'desc': '3 meses + 5 congelamentos de streak',
+        'savings': 40,
+    },
+}
 
 def get_theme_price(streak_days):
     return THEME_PRICES.get(streak_days, 5.00)
@@ -1139,6 +1179,8 @@ def create_checkout():
         plans_map[f'theme_{tid}'] = (get_theme_price(tid), f'Tema: {tname}')
     for bid, (bname, bemoji) in BADGES.items():
         plans_map[f'badge_{bid}'] = (BADGE_PRICE, f'Distintivo: {bemoji} {bname}')
+    for ckey, cinfo in COMBOS.items():
+        plans_map[ckey] = (cinfo['price'], cinfo['name'] + ' - ' + cinfo['desc'])
     if plan not in plans_map or not name or not email or not cpf:
         return jsonify({'error': 'Dados inválidos.'}), 400
     if billing_type not in ('card', 'pix', 'boleto'):
@@ -1190,7 +1232,40 @@ def asaas_webhook():
         if target:
             plan_key = payload.get('payment', {}).get('externalReference', '').split('_')[-1]
             value = PLAN_VALUES.get(plan_key, 0)
-            if plan_key in ('freeze1', 'freeze3', 'freeze5'):
+            if plan_key in COMBOS:
+                combo = COMBOS[plan_key]
+                value = combo['price']
+                if not target.first_purchase_done:
+                    target.first_purchase_done = True
+                    value_days = 1
+                else:
+                    value_days = 0
+                base_days = PLAN_DAYS.get(combo['plan'], 30)
+                target.is_paid = True
+                now = datetime.now(BRT)
+                total_days = base_days + value_days
+                if target.paid_until and target.paid_until > now:
+                    target.paid_until += timedelta(days=total_days)
+                else:
+                    target.paid_until = now + timedelta(days=total_days)
+                purchased_themes = set()
+                if target.purchased_themes:
+                    purchased_themes = set(t.strip() for t in target.purchased_themes.split(',') if t.strip())
+                for theme_id in combo['themes']:
+                    purchased_themes.add(theme_id)
+                target.purchased_themes = ','.join(sorted(purchased_themes))
+                if combo['freezes']:
+                    target.streak_freezes = (target.streak_freezes or 0) + combo['freezes']
+                target.points = (target.points or 0) + int(value)
+                while target.points >= FREE_MONTH_POINTS:
+                    target.points -= FREE_MONTH_POINTS
+                    if target.paid_until and target.paid_until > now:
+                        target.paid_until += timedelta(days=30)
+                    else:
+                        target.paid_until = now + timedelta(days=30)
+                db.session.commit()
+                print(f'Combo {plan_key} confirmado para usuário {user_id}: {total_days} dias, temas {combo["themes"]}, {combo["freezes"]} freezes')
+            elif plan_key in ('freeze1', 'freeze3', 'freeze5'):
                 freeze_count = 1 if plan_key == 'freeze1' else (3 if plan_key == 'freeze3' else 5)
                 target.streak_freezes = (target.streak_freezes or 0) + freeze_count
                 target.points = (target.points or 0) + int(value)
@@ -1402,7 +1477,7 @@ def update_font():
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
 
-app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name)
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS)
 
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true', port=5000)

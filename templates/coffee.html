@@ -208,6 +208,40 @@
             </div>
         </div>
 
+        <div class="section-title">&#128230; Combos com Desconto</div>
+        <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
+            Leve mais por menos — combos exclusivos com temas e congelamentos inclusos.
+        </p>
+
+        <div class="combo-plans">
+            {% for ckey, cinfo in COMBOS|dictsort %}
+            {% set savings_pct = (cinfo.savings / (cinfo.price + cinfo.savings) * 100)|round %}
+            <div class="combo-card {% if cinfo.plan == '12meses' %}featured{% endif %}">
+                <div class="combo-badge">&#127881; {{ savings_pct }}% OFF</div>
+                <div class="combo-name">{{ cinfo.name }}</div>
+                <div class="combo-price">R${{ '%.0f'|format(cinfo.price) }}</div>
+                <div class="combo-desc">{{ cinfo.desc }}</div>
+                <div class="combo-savings">Economia de R$ {{ cinfo.savings }}</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>{{ cinfo.desc }}</li>
+                    {% if cinfo.freezes %}
+                    <li>&#10052;&#65039; {{ cinfo.freezes }} congelamento{{ 's' if cinfo.freezes > 1 else '' }} de streak</li>
+                    {% endif %}
+                    {% if cinfo.themes %}
+                    <li>&#127912; Tema{{ 's' if cinfo.themes|length > 1 else '' }}: 
+                        {%- for tid in cinfo.themes -%}
+                            {% set tname = STREAK_THEMES[tid][0] if tid in STREAK_THEMES else tid %}
+                            {{ tname }}{% if not loop.last %}, {% endif %}
+                        {%- endfor -%}
+                    </li>
+                    {% endif %}
+                </ul>
+                <button class="plan-btn gold" onclick="openCheckout('{{ ckey }}', '{{ cinfo.name }}', {{ cinfo.price }})">Assinar Combo</button>
+            </div>
+            {% endfor %}
+        </div>
+
         <div class="urgency">
             &#9200; Esta oferta de lançamento tem preços bloqueados. O valor do plano anual pode subir a qualquer momento.
         </div>
