@@ -54,6 +54,8 @@ class Post(db.Model):
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
+    comments = db.relationship('Comment', backref='post', lazy=True, cascade='all, delete-orphan',
+                               order_by='Comment.created_at')
 
 class AppConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -74,7 +76,18 @@ class User(db.Model):
     reset_token_expires = db.Column(db.DateTime(timezone=True))
     points = db.Column(db.Integer, default=0)
     paid_until = db.Column(db.DateTime(timezone=True), nullable=True)
+    streak_count = db.Column(db.Integer, default=0)
+    last_streak_date = db.Column(db.DateTime(timezone=True), nullable=True)
+    streak_freezes = db.Column(db.Integer, default=0)
+    theme = db.Column(db.String(50), default='newspaper')
+    title = db.Column(db.String(100), nullable=True)
+    purchased_themes = db.Column(db.Text, nullable=True)
+    badge = db.Column(db.String(50), nullable=True)
+    purchased_badges = db.Column(db.Text, nullable=True)
+    first_purchase_done = db.Column(db.Boolean, default=False)
+    font = db.Column(db.String(50), nullable=True)
     favorites = db.relationship('Favorite', backref='user', lazy=True)
+    comments = db.relationship('Comment', backref='author', lazy=True)
 
 class Favorite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -88,9 +101,65 @@ class LoginAttempt(db.Model):
     timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     success = db.Column(db.Boolean, default=False)
 
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+
 PLAN_DAYS = { '1dia': 1, '1mes': 30, '3meses': 90, '6meses': 180, '12meses': 365 }
-PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 60.00, '6meses': 60.00, '12meses': 108.00 }
+PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 20.00, '6meses': 60.00, '12meses': 108.00 }
 FREE_MONTH_POINTS = 360
+
+BADGES = {
+    'star': ('Estrela', '\u2b50'),
+    'fire': ('Fogo', '\U0001f525'),
+    'diamond': ('Diamante', '\U0001f48e'),
+    'crown': ('Coroa', '\U0001f451'),
+    'trophy': ('Troféu', '\U0001f3c6'),
+    'shield': ('Escudo', '\U0001f6e1\ufe0f'),
+    'heart': ('Coração', '\u2764\ufe0f'),
+    'moon': ('Lua', '\U0001f319'),
+}
+
+THEME_PURCHASE_PRICE = 5.00
+BADGE_PRICE = 3.00
+
+def get_purchasable_themes(user):
+    if not user:
+        return []
+    if user.username == 'admin':
+        return [(tid, tn, True) for tid, (tn, _) in STREAK_THEMES.items()]
+    streak = user.streak_count or 0
+    purchased = set()
+    if user.purchased_themes:
+        purchased = set(t.strip() for t in user.purchased_themes.split(',') if t.strip())
+    result = []
+    for req_streak, (theme_id, theme_name) in sorted(STREAK_THEMES.items()):
+        already = streak >= req_streak or theme_id in purchased
+        result.append((theme_id, theme_name, already))
+    return result
+
+def get_purchasable_badges(user):
+    if not user:
+        return []
+    if user.username == 'admin':
+        return [(bid, bn, be, True) for bid, (bn, be) in BADGES.items()]
+    is_pioneer = False
+    pioneer = AppConfig.query.filter_by(key='first_365_user_id').first()
+    if pioneer and pioneer.value and str(user.id) == pioneer.value:
+        is_pioneer = True
+    purchased = set()
+    if user.purchased_badges:
+        purchased = set(b.strip() for b in user.purchased_badges.split(',') if b.strip())
+    result = []
+    if is_pioneer:
+        result.append(('pioneer', PIONEER_BADGE[0], PIONEER_BADGE[1], True))
+    for bid, (bname, bemoji) in sorted(BADGES.items()):
+        owned = bid in purchased
+        result.append((bid, bname, bemoji, owned))
+    return result
 
 COLUMN_RENAMES = {
     'user': [('password_hash', 'password')],
@@ -102,7 +171,8 @@ def ensure_constraints():
     from sqlalchemy import inspect
     inspector = inspect(db.engine)
     for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
-                               ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
+                               ('login_attempt', LoginAttempt), ('app_config', AppConfig),
+                               ('comment', Comment)]:
         existing = {c['name'] for c in inspector.get_columns(table_name)}
         existing_ucs = {uc['name'] for uc in inspector.get_unique_constraints(table_name)}
         for col in model.__table__.columns:
@@ -126,7 +196,8 @@ def migrate_columns():
     from sqlalchemy import inspect
     inspector = inspect(db.engine)
     for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
-                               ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
+                               ('login_attempt', LoginAttempt), ('app_config', AppConfig),
+                               ('comment', Comment)]:
         existing = {c['name'] for c in inspector.get_columns(table_name)}
         for old_name, new_name in COLUMN_RENAMES.get(table_name, []):
             if old_name in existing and new_name not in existing:
@@ -206,7 +277,7 @@ with app.app_context():
     admin_pass = os.getenv('ADMIN_PASSWORD', 'admin')
     admin_user = User.query.filter_by(username='admin').first()
     if not admin_user:
-        db.session.add(User(username='admin', email=os.getenv('ADMIN_EMAIL', 'admin@diario.app'), password=generate_password_hash(admin_pass), email_verified=True))
+        db.session.add(User(username='admin', email=os.getenv('ADMIN_EMAIL', 'admin@diario.app'), password=generate_password_hash(admin_pass), email_verified=True, streak_freezes=999, is_paid=True, first_purchase_done=True))
     elif not admin_user.email:
         admin_user.email = os.getenv('ADMIN_EMAIL', 'admin@diario.app')
         admin_user.email_verified = True
@@ -341,6 +412,150 @@ def get_premium_days_left(user):
     delta = user.paid_until - datetime.now(BRT)
     return max(0, delta.days)
 
+STREAK_THEMES = {
+    3: ('dark', 'Modo Escuro'),
+    30: ('sepia', 'Tons Sepia'),
+    60: ('matrix', 'Matrix'),
+    90: ('ocean', 'Oceano'),
+    120: ('forest', 'Floresta'),
+    150: ('sunset', 'Pôr do Sol'),
+    180: ('midnight', 'Meia-Noite'),
+    210: ('lavender', 'Lavanda'),
+    240: ('sakura', 'Sakura'),
+    270: ('mint', 'Menta'),
+    300: ('ember', 'Brasa'),
+    330: ('galaxy', 'Galáxia'),
+    360: ('royal', 'Real'),
+    365: ('coroado', 'O Coroado'),
+}
+
+STREAK_BONUS_POINTS = {3: 10, 30: 25, 60: 50, 90: 100, 120: 100, 150: 150,
+                       180: 150, 210: 200, 240: 200, 270: 250, 300: 300,
+                       330: 350, 360: 400, 365: 500}
+
+PIONEER_TITLE = ('O Pioneiro', '\U0001f3c6')
+PIONEER_BADGE = ('Pioneiro', '\U0001f3c6')
+
+STREAK_TITLES = {
+    10: ('Leitor Iniciante', '\U0001f7e2'),
+    20: ('Leitor Dedicado', '\U0001f535'),
+    30: ('Cidadão Atento', '\U0001f7e1'),
+    40: ('Observador Fiel', '\U0001f7e0'),
+    50: ('Guardião da Memória', '\U0001f7e2'),
+    60: ('Veterano da Leitura', '\U0001f535'),
+    70: ('Mestre da Informação', '\U0001f7e1'),
+    80: ('Sábio do Diário', '\U0001f7e0'),
+    90: ('Cidadão Exemplar', '\U0001f7e2'),
+    100: ('Centenário da Leitura', '\U0001f535'),
+    110: ('Cronista do Tempo', '\U0001f7e1'),
+    120: ('Arquivista Real', '\U0001f7e0'),
+    130: ('Defensor da Transparência', '\U0001f7e2'),
+    140: ('Pilar da Comunidade', '\U0001f535'),
+    150: ('Lenda Viva', '\U0001f7e1'),
+    160: ('Vigia da Verdade', '\U0001f7e0'),
+    170: ('Coração do Diário', '\U0001f7e2'),
+    180: ('Semestral da Leitura', '\U0001f535'),
+    190: ('Incansável', '\U0001f7e1'),
+    200: ('Bicentenário', '\U0001f7e0'),
+    210: ('Farol da Informação', '\U0001f7e2'),
+    220: ('Mural da História', '\U0001f535'),
+    230: ('Raiz do Conhecimento', '\U0001f7e1'),
+    240: ('Eterno Aprendiz', '\U0001f7e0'),
+    250: ('Ponte do Saber', '\U0001f7e2'),
+    260: ('Escudo da Memória', '\U0001f535'),
+    270: ('Titã da Leitura', '\U0001f7e1'),
+    280: ('A Sentinela', '\U0001f7e0'),
+    290: ('Voz da Experiência', '\U0001f7e2'),
+    300: ('Fênix da Leitura', '\U0001f535'),
+    310: ('Guardião Supremo', '\U0001f7e1'),
+    320: ('Mestre dos Mestres', '\U0001f7e0'),
+    330: ('Lenda do Diário', '\U0001f7e2'),
+    340: ('Imortal da Palavra', '\U0001f535'),
+    350: ('Túlio do Conhecimento', '\U0001f7e1'),
+    360: ('Templo do Conhecimento', '\U0001f7e0'),
+    365: ('O Coroado', '\U0001f451'),
+}
+
+def get_user_title(user):
+    if not user:
+        return None
+    if user.username == 'admin':
+        return ('O Editor-Chefe', '\U0001f4ed')
+    pioneer = AppConfig.query.filter_by(key='first_365_user_id').first()
+    if pioneer and pioneer.value and str(user.id) == pioneer.value:
+        return PIONEER_TITLE
+    if user.title and user.title in [v[0] for v in STREAK_TITLES.values()]:
+        return user.title
+    streak = user.streak_count or 0
+    best = None
+    best_days = 0
+    for days, (title, emoji) in sorted(STREAK_TITLES.items()):
+        if streak >= days and days >= best_days:
+            best = (title, emoji)
+            best_days = days
+    return best
+
+def get_unlocked_titles(user):
+    if not user:
+        return []
+    if user.username == 'admin':
+        return [(days, title, emoji) for days, (title, emoji) in STREAK_TITLES.items()]
+    unlocked = []
+    streak = user.streak_count or 0
+    for days, (title, emoji) in sorted(STREAK_TITLES.items()):
+        if streak >= days:
+            unlocked.append((days, title, emoji))
+    return unlocked
+
+def get_unlocked_themes(user):
+    themes = [('newspaper', 'Clássico (Newspaper)')]
+    if not user:
+        return themes
+    if user.username == 'admin':
+        for req_streak, (theme_id, theme_name) in sorted(STREAK_THEMES.items()):
+            themes.append((theme_id, theme_name))
+        return themes
+    streak = user.streak_count or 0
+    purchased = set()
+    if user.purchased_themes:
+        purchased = set(t.strip() for t in user.purchased_themes.split(',') if t.strip())
+    for req_streak, (theme_id, theme_name) in sorted(STREAK_THEMES.items()):
+        if streak >= req_streak or theme_id in purchased:
+            themes.append((theme_id, theme_name))
+    return themes
+
+def update_streak(user):
+    now = datetime.now(BRT)
+    today = now.date()
+    if user.last_streak_date:
+        last = user.last_streak_date
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=BRT)
+        last_date = last.date()
+        diff = (today - last_date).days
+        if diff == 1:
+            user.streak_count = (user.streak_count or 0) + 1
+        elif diff > 1:
+            freezes = user.streak_freezes or 0
+            if freezes > 0:
+                used = min(freezes, diff - 1)
+                user.streak_freezes = freezes - used
+            else:
+                user.streak_count = 1
+    elif user.last_streak_date is None:
+        user.streak_count = 1
+    user.last_streak_date = now
+    streak = user.streak_count
+    for req_streak, points in sorted(STREAK_BONUS_POINTS.items()):
+        if streak == req_streak:
+            user.points = (user.points or 0) + points
+            break
+    if streak >= 365 and user.username != 'admin':
+        pioneer = AppConfig.query.filter_by(key='first_365_user_id').first()
+        if not pioneer:
+            db.session.add(AppConfig(key='first_365_user_id', value=str(user.id)))
+    db.session.commit()
+
 def fetch_daily_diary():
     url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     try:
@@ -443,7 +658,14 @@ def index():
             last_time = last_time.replace(tzinfo=BRT)
         should_check = (now - last_time) > timedelta(minutes=interval_min)
     fav_ids = {f.post_id for f in user.favorites} if user else set()
-    return render_template('index.html', post=post, user=user, should_check=should_check, user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend())
+    now = datetime.now(BRT)
+    unlocked_themes = get_unlocked_themes(user)
+    latest_posts = Post.query.order_by(Post.id.desc()).limit(5).all() if user else []
+    cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
+    return render_template('index.html', post=post, user=user, should_check=should_check,
+                           user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend(),
+                           unlocked_themes=unlocked_themes, now=now, latest_posts=latest_posts,
+                           cidadao_pct=cidadao_pct)
 
 @app.route('/api/should-check')
 def api_should_check():
@@ -497,19 +719,27 @@ def api_status():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        import sys
         ip = get_client_ip()
+        print(f"\nLOGIN: user={request.form.get('username')!r} pw={request.form.get('password')!r} captcha={request.form.get('captcha')!r} csrf={request.form.get('csrf_token','')[:20]}", file=sys.stderr)
         if not check_rate_limit(ip):
+            print('→ RATE LIMIT', file=sys.stderr)
             return render_template('login.html', error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_csrf():
+            print('→ CSRF FAIL', file=sys.stderr)
             return render_template('login.html', error='Token inválido. Recarregue a página.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_captcha(request.form.get('captcha')):
+            print('→ CAPTCHA FAIL', file=sys.stderr)
             record_attempt(ip, False)
             return render_template('login.html', error='Captcha incorreto.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         user = User.query.filter_by(username=request.form.get('username', '').strip()).first()
         if user and check_password_hash(user.password, request.form.get('password', '')):
             session['user_id'] = user.id
+            update_streak(user)
             record_attempt(ip, True)
+            print('→ SUCCESS', file=sys.stderr)
             return redirect(request.args.get('next') or url_for('dashboard'))
+        print(f'→ CRED FAIL (user={user is not None})', file=sys.stderr)
         record_attempt(ip, False)
         return render_template('login.html', error='Credenciais inválidas.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
     return render_template('login.html', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
@@ -542,7 +772,7 @@ def register():
         if User.query.filter_by(email=email).first():
             return render_template('login.html', registering=True, error='E-mail já cadastrado.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         token = secrets.token_urlsafe(48)
-        user = User(username=username, email=email, password=generate_password_hash(password), verification_token=token)
+        user = User(username=username, email=email, password=generate_password_hash(password), verification_token=token, streak_freezes=3)
         db.session.add(user)
         db.session.commit()
         base_url = request.host_url.rstrip('/')
@@ -550,6 +780,7 @@ def register():
         send_email(email, 'Confirme seu e-mail - Diário Reduzido',
             f'Olá {username},\n\nConfirme seu e-mail clicando no link abaixo:\n{verify_link}\n\nSe não foi você que criou esta conta, ignore esta mensagem.')
         session['user_id'] = user.id
+        update_streak(user)
         record_attempt(ip, True)
         return redirect(url_for('dashboard'))
     return render_template('login.html', registering=True, captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
@@ -626,7 +857,13 @@ def view_post(id):
             post.content = render_md(post.content)
         if post.commentary:
             post.commentary = render_md(post.commentary)
-    return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids)
+    now = datetime.now(BRT)
+    unlocked_themes = get_unlocked_themes(user)
+    latest_posts = Post.query.order_by(Post.id.desc()).limit(5).all() if user else []
+    cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
+    return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids,
+                           unlocked_themes=unlocked_themes, now=now, latest_posts=latest_posts,
+                           cidadao_pct=cidadao_pct)
 
 @app.route('/search-date', methods=['POST'])
 @login_required
@@ -637,18 +874,19 @@ def search_date():
     date_str = request.form.get('date')
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     if not date_str:
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error='Selecione uma data.', user_fav_ids=fav_ids)
+        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error='Selecione uma data.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     try:
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error='Data inválida.', user_fav_ids=fav_ids)
+        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error='Data inválida.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     if not user.is_paid and user.requests_made >= 1:
         return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user,
-            error='Limite atingido. Faça uma doação para pedidos ilimitados.', user_fav_ids=fav_ids)
+            error='Limite atingido. Faça uma doação para pedidos ilimitados.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     pdf_link = search_diary_by_date(target_date)
     if not pdf_link:
         return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user,
-            error=f'Nenhum diário encontrado para {target_date.strftime("%d/%m/%Y")}.', user_fav_ids=fav_ids)
+            error=f'Nenhum diário encontrado para {target_date.strftime("%d/%m/%Y")}.', user_fav_ids=fav_ids,
+            unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     try:
         pdf_content = requests.get(pdf_link, timeout=60).content
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
@@ -666,7 +904,7 @@ def search_date():
     except Exception as e:
         print(f"Erro durante o processamento: {e}")
         db.session.rollback()
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error=str(e), user_fav_ids=fav_ids)
+        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error=str(e), user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
 
 @app.route('/favorite/<int:post_id>', methods=['POST'])
 @login_required
@@ -699,7 +937,24 @@ def dashboard():
     latest = Post.query.order_by(Post.id.desc()).first()
     days_left = get_premium_days_left(user)
     account_created = user.id  # approximate; we don't store created_at, use id as proxy
-    return render_template('dashboard.html', user=user, latest=latest, days_left=days_left, FREE_MONTH_POINTS=FREE_MONTH_POINTS)
+    unlocked_themes = get_unlocked_themes(user)
+    unlocked_titles = get_unlocked_titles(user)
+    current_title_info = get_user_title(user)
+    next_unlock = None
+    streak = user.streak_count or 0
+    for req_streak, info in sorted(STREAK_THEMES.items()):
+        if streak < req_streak:
+            next_unlock = (req_streak, info[1])
+            break
+    cidadao_pct = min(100, int((streak / 90) * 100))
+    purchasable_themes = get_purchasable_themes(user)
+    purchasable_badges = get_purchasable_badges(user)
+    return render_template('dashboard.html', user=user, latest=latest, days_left=days_left,
+                           FREE_MONTH_POINTS=FREE_MONTH_POINTS, unlocked_themes=unlocked_themes,
+                           unlocked_titles=unlocked_titles, current_title_info=current_title_info,
+                           next_unlock=next_unlock, cidadao_pct=cidadao_pct,
+                           streak_freezes=user.streak_freezes or 0,
+                           purchasable_themes=purchasable_themes, purchasable_badges=purchasable_badges)
 
 @app.route('/coffee')
 def coffee_redirect():
@@ -725,10 +980,17 @@ def create_checkout():
     plans_map = {
         '1dia': (10.00, '1 Dia - Diário Reduzido'),
         '1mes': (30.00, '1 Mês - Diário Reduzido'),
-        '3meses': (60.00, '3 Meses - Diário Reduzido'),
+        '3meses': (20.00, '3 Meses - Diário Reduzido'),
         '6meses': (60.00, '6 Meses - Diário Reduzido'),
         '12meses': (108.00, 'Anual - Diário Reduzido'),
+        'freeze1': (5.00, '1 Congelamento de Streak'),
+        'freeze3': (12.00, '3 Congelamentos de Streak'),
+        'freeze5': (18.00, '5 Congelamentos de Streak'),
     }
+    for tid, (tname, _) in STREAK_THEMES.items():
+        plans_map[f'theme_{tid}'] = (THEME_PURCHASE_PRICE, f'Tema: {tname}')
+    for bid, (bname, bemoji) in BADGES.items():
+        plans_map[f'badge_{bid}'] = (BADGE_PRICE, f'Distintivo: {bemoji} {bname}')
     if plan not in plans_map or not name or not email or not cpf:
         return jsonify({'error': 'Dados inválidos.'}), 400
     if billing_type not in ('card', 'pix', 'boleto'):
@@ -779,23 +1041,72 @@ def asaas_webhook():
         target = User.query.get(user_id)
         if target:
             plan_key = payload.get('payment', {}).get('externalReference', '').split('_')[-1]
-            days = PLAN_DAYS.get(plan_key, 30)
-            value = PLAN_VALUES.get(plan_key, 30.0)
-            target.is_paid = True
-            now = datetime.now(BRT)
-            if target.paid_until and target.paid_until > now:
-                target.paid_until += timedelta(days=days)
+            value = PLAN_VALUES.get(plan_key, 0)
+            if plan_key in ('freeze1', 'freeze3', 'freeze5'):
+                freeze_count = 1 if plan_key == 'freeze1' else (3 if plan_key == 'freeze3' else 5)
+                target.streak_freezes = (target.streak_freezes or 0) + freeze_count
+                target.points = (target.points or 0) + int(value)
+                db.session.commit()
+                print(f'Streak freezes comprados para usuário {user_id}: +{freeze_count} (total: {target.streak_freezes})')
+            elif plan_key.startswith('theme_'):
+                theme_id = plan_key[6:]
+                purchased = set()
+                if target.purchased_themes:
+                    purchased = set(t.strip() for t in target.purchased_themes.split(',') if t.strip())
+                purchased.add(theme_id)
+                target.purchased_themes = ','.join(sorted(purchased))
+                target.points = (target.points or 0) + int(value)
+                if not target.first_purchase_done:
+                    target.first_purchase_done = True
+                    days = 1
+                    target.is_paid = True
+                    now = datetime.now(BRT)
+                    if target.paid_until and target.paid_until > now:
+                        target.paid_until += timedelta(days=days)
+                    else:
+                        target.paid_until = now + timedelta(days=days)
+                db.session.commit()
+                print(f'Tema comprado para usuário {user_id}: {theme_id}')
+            elif plan_key.startswith('badge_'):
+                badge_id = plan_key[6:]
+                purchased = set()
+                if target.purchased_badges:
+                    purchased = set(b.strip() for b in target.purchased_badges.split(',') if b.strip())
+                purchased.add(badge_id)
+                target.purchased_badges = ','.join(sorted(purchased))
+                target.badge = badge_id
+                target.points = (target.points or 0) + int(value)
+                if not target.first_purchase_done:
+                    target.first_purchase_done = True
+                    days = 1
+                    target.is_paid = True
+                    now = datetime.now(BRT)
+                    if target.paid_until and target.paid_until > now:
+                        target.paid_until += timedelta(days=days)
+                    else:
+                        target.paid_until = now + timedelta(days=days)
+                db.session.commit()
+                print(f'Distintivo comprado para usuário {user_id}: {badge_id}')
             else:
-                target.paid_until = now + timedelta(days=days)
-            target.points = (target.points or 0) + int(value)
-            while target.points >= FREE_MONTH_POINTS:
-                target.points -= FREE_MONTH_POINTS
+                days = PLAN_DAYS.get(plan_key, 30)
+                if not target.first_purchase_done:
+                    target.first_purchase_done = True
+                    days += 1
+                target.is_paid = True
+                now = datetime.now(BRT)
                 if target.paid_until and target.paid_until > now:
-                    target.paid_until += timedelta(days=30)
+                    target.paid_until += timedelta(days=days)
                 else:
-                    target.paid_until = now + timedelta(days=30)
-            db.session.commit()
-            print(f'Pagamento confirmado para usuário {user_id}, plano {plan_key}, {days} dias adicionados')
+                    target.paid_until = now + timedelta(days=days)
+                target.points = (target.points or 0) + int(value)
+                while target.points >= FREE_MONTH_POINTS:
+                    target.points -= FREE_MONTH_POINTS
+                    if target.paid_until and target.paid_until > now:
+                        target.paid_until += timedelta(days=30)
+                    else:
+                        target.paid_until = now + timedelta(days=30)
+                db.session.commit()
+                print(f'Pagamento confirmado para usuário {user_id}, plano {plan_key}, {days} dias adicionados')
     return jsonify({'status': 'ok'})
 
 @app.route('/api/reprocess-latest', methods=['POST'])
@@ -843,6 +1154,93 @@ def pagamento_sucesso():
 @app.route('/pagamento/falha')
 def pagamento_falha():
     return render_template('pagamento.html', sucesso=False)
+
+@app.route('/share/<int:post_id>')
+def share_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    now = datetime.now(BRT)
+    post_date = post.date
+    if post_date.tzinfo is None:
+        post_date = post_date.replace(tzinfo=BRT)
+    if post_date > now:
+        return render_template('index.html', post=post, user=None, user_fav_ids=set(),
+                               error='Esta edição ainda não pode ser compartilhada.')
+    title = post.title
+    import re as _re
+    plain = _re.sub(r'<[^>]+>', '', post.content or '')
+    plain = _re.sub(r'\s+', ' ', plain).strip()
+    summary = plain[:200]
+    if len(plain) > 200:
+        summary += '...'
+    domain = request.host_url.rstrip('/')
+    article_url = f'{domain}/post/{post.id}'
+    return render_template('share.html', post=post, title=title, summary=summary, article_url=article_url, user=get_current_user())
+
+@app.route('/comment/<int:post_id>', methods=['POST'])
+@login_required
+def add_comment(post_id):
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    post = Post.query.get_or_404(post_id)
+    content = request.form.get('content', '').strip()
+    if not content or len(content) < 2:
+        return jsonify({'error': 'Comentário deve ter pelo menos 2 caracteres.'}), 400
+    if len(content) > 1000:
+        return jsonify({'error': 'Comentário muito longo (máx 1000 caracteres).'}), 400
+    comment = Comment(content=content, author=user, post=post)
+    db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('view_post', id=post_id) + '#comments')
+
+@app.route('/theme', methods=['POST'])
+@login_required
+def update_theme():
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    theme = request.form.get('theme', 'newspaper')
+    unlocked = {t[0] for t in get_unlocked_themes(user)}
+    if theme not in unlocked:
+        return jsonify({'error': 'Tema não disponível.'}), 400
+    user.theme = theme
+    db.session.commit()
+    return redirect(request.referrer or url_for('dashboard'))
+
+@app.route('/update-title', methods=['POST'])
+@login_required
+def update_title():
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    new_title = request.form.get('title', '').strip()
+    unlocked = [t[1] for t in get_unlocked_titles(user)]
+    if new_title and new_title not in unlocked:
+        return jsonify({'error': 'Título não disponível.'}), 400
+    user.title = new_title if new_title else None
+    db.session.commit()
+    return redirect(request.referrer or url_for('dashboard'))
+
+@app.route('/update-badge', methods=['POST'])
+@login_required
+def update_badge():
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    badge_id = request.form.get('badge', '').strip()
+    owned_badges = set()
+    if user.purchased_badges:
+        owned_badges = set(b.strip() for b in user.purchased_badges.split(',') if b.strip())
+    pioneer = AppConfig.query.filter_by(key='first_365_user_id').first()
+    if pioneer and pioneer.value and str(user.id) == pioneer.value:
+        owned_badges.add('pioneer')
+    if badge_id and badge_id not in owned_badges:
+        return jsonify({'error': 'Distintivo não disponível.'}), 400
+    user.badge = badge_id if badge_id else None
+    db.session.commit()
+    return redirect(request.referrer or url_for('dashboard'))
+
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes)
 
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true', port=5000)

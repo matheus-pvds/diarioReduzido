@@ -19,14 +19,14 @@ class GeminiClient:
         if prompt is None:
             prompt = (
                 "Analise este diário oficial e produza:\n"
-                "1. Um título jornalístico impactante que resuma a principal notícia do dia (máximo 15 palavras)\n"
+                "1. Um título jornalístico IMPACTANTE e chamativo (máximo 12 palavras) que faça as pessoas quererem ler. Pode ser um pouco clickbait, mas relevante ao conteúdo.\n"
                 "2. Um resumo detalhado e objetivo das principais decisões, nomeações e editais\n"
-                "3. Uma seção '### Notas do Editor' ao final com um comentário sobre o que está acontecendo na cidade que se relaciona com estas publicações, conectando os atos do diário ao contexto municipal\n\n"
+                "3. Uma seção '### Notas do Editor' ao final com um comentário editorial conectando as publicações ao contexto municipal e político atual\n\n"
                 "Formato obrigatório:\n"
                 "TITULO: <título impactante>\n\n"
                 "<resumo detalhado em markdown>\n\n"
                 "### Notas do Editor\n"
-                "<comentários e análise contextual>\n\n"
+                "<comentário editorial>\n\n"
                 "Importante: quantifique e conte todos os atos repetitivos (por exemplo, se houver rescisões de contrato ou nomeações, conte e informe o número total exato de servidores afetados em vez de usar termos vagos como 'muitos' ou 'vários'). "
                 "VOCÊ DEVE RESPONDER APENAS EM PORTUGUÊS DO BRASIL. NÃO USE INGLÊS EM NENHUMA HIPÓTESE."
             )

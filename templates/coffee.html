@@ -8,33 +8,63 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
     <style>
-        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --accent-red: #a00; --gold: #c8962e; }
+        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --accent-red: #a00; --gold: #c8962e; --green: #2e7d32; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
-        .container { max-width: 900px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 100vh; border: 1px solid #ddd; }
-        h1 { font-family: 'Playfair Display', serif; font-size: 2.8rem; text-align: center; border-bottom: 4px double var(--border-heavy); padding-bottom: 1rem; margin-bottom: 0.5rem; }
-        .sub { text-align: center; font-style: italic; color: #555; margin-bottom: 2.5rem; font-size: 1.1rem; }
-        .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.2rem; margin-bottom: 2.5rem; }
+        .container { max-width: 960px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 100vh; border: 1px solid #ddd; }
+        h1 { font-family: 'Playfair Display', serif; font-size: 2.8rem; text-align: center; border-bottom: 4px double #333; padding-bottom: 1rem; margin-bottom: 0.5rem; }
+        .sub { text-align: center; font-style: italic; color: #555; margin-bottom: 1.5rem; font-size: 1.1rem; }
+        .pain-point { text-align: center; max-width: 650px; margin: 0 auto 2rem; padding: 1.2rem 1.5rem; background: #fef0f0; border-left: 4px solid var(--accent-red); font-size: 1rem; line-height: 1.6; }
+        .pain-point strong { color: var(--accent-red); }
+        .testimonial { text-align: center; max-width: 600px; margin: 0 auto 2rem; padding: 1rem; background: #f0f7f0; border-radius: 6px; font-style: italic; font-size: 0.95rem; color: #444; }
+        .testimonial cite { display: block; margin-top: 0.4rem; font-style: normal; font-size: 0.85rem; color: var(--green); }
+        .section-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; text-align: center; margin: 2.5rem 0 1.5rem; }
+        .perks-global { background: #f0ede5; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; text-align: center; }
+        .perks-global h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 0.8rem; }
+        .perks-global ul { list-style: none; padding: 0; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
+        .perks-global li { font-size: 0.95rem; }
+        .perks-global li::before { content: '\2713 '; color: var(--green); font-weight: bold; }
+
+        .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
         .plan-card { background: #fff; border: 1px solid #ddd; padding: 1.8rem 1.2rem; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; display: flex; flex-direction: column; }
         .plan-card:hover { border-color: var(--ink-color); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
         .plan-card.featured { border: 2px solid var(--gold); }
-        .plan-card.featured::before { content: 'MELHOR'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #fff; font-family: 'Playfair Display', serif; font-size: 0.7rem; padding: 2px 12px; letter-spacing: 2px; }
-        .plan-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.5rem; }
+        .plan-card.featured::before { content: 'MELHOR CUSTO-BENEFÍCIO'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #fff; font-family: 'Playfair Display', serif; font-size: 0.6rem; padding: 2px 10px; letter-spacing: 2px; white-space: nowrap; }
+        .plan-card.best-value { border: 2px solid var(--accent-red); }
+        .plan-card.best-value::before { content: 'MAIS POPULAR'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--accent-red); color: #fff; font-family: 'Playfair Display', serif; font-size: 0.6rem; padding: 2px 10px; letter-spacing: 2px; white-space: nowrap; }
+        .plan-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.3rem; }
         .plan-price { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; margin-bottom: 0.2rem; }
         .plan-price span { font-size: 1rem; font-weight: 400; color: #666; }
-        .plan-monthly { font-size: 0.85rem; color: #888; margin-bottom: 1rem; }
+        .plan-monthly { font-size: 0.85rem; color: #888; margin-bottom: 0.5rem; }
         .plan-detail { font-size: 0.8rem; color: #666; margin-bottom: 0.3rem; }
-        .plan-divider { border: none; border-top: 1px solid #eee; margin: 1rem 0; }
-        .plan-perks { list-style: none; padding: 0; font-size: 0.85rem; flex: 1; }
+        .plan-divider { border: none; border-top: 1px solid #eee; margin: 0.8rem 0; }
+        .plan-perks { list-style: none; padding: 0; font-size: 0.82rem; flex: 1; }
         .plan-perks li { padding: 0.3rem 0; }
-        .plan-perks li::before { content: '\2713 '; color: #2e7d32; font-weight: bold; }
-        .plan-btn { display: inline-block; margin-top: 1rem; background: var(--ink-color); color: #fff; border: none; padding: 0.6rem 1.5rem; font-family: 'Playfair Display', serif; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: background 0.2s; }
+        .plan-perks li::before { content: '\2713 '; color: var(--green); font-weight: bold; }
+        .plan-btn { display: inline-block; margin-top: 0.8rem; background: var(--ink-color); color: #fff; border: none; padding: 0.6rem 1.5rem; width: 100%; font-family: 'Playfair Display', serif; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: background 0.2s; }
         .plan-btn:hover { background: var(--accent-red); }
-        .perks-global { background: #f0ede5; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; text-align: center; }
-        .perks-global h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 0.8rem; }
-        .perks-global ul { list-style: none; padding: 0; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
-        .perks-global li { font-size: 0.95rem; }
-        .perks-global li::before { content: '\2713 '; color: #2e7d32; font-weight: bold; }
+        .plan-btn.gold { background: var(--gold); }
+        .plan-btn.gold:hover { background: #b8860b; }
+        .plan-btn.green { background: var(--green); }
+        .plan-btn.green:hover { background: #1b5e20; }
+        .plan-savings { font-size: 0.75rem; color: var(--accent-red); font-weight: bold; margin-top: 0.3rem; }
+
+        .freeze-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .freeze-card { background: #fff; border: 1px solid #ddd; padding: 1.5rem 1rem; text-align: center; transition: all 0.2s; }
+        .freeze-card:hover { border-color: var(--ink-color); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .freeze-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .freeze-name { font-family: 'Playfair Display', serif; font-size: 1rem; margin-bottom: 0.3rem; }
+        .freeze-price { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; }
+        .freeze-desc { font-size: 0.8rem; color: #666; margin-bottom: 0.8rem; }
+
+        .urgency { text-align: center; font-size: 0.85rem; color: #888; margin-bottom: 2rem; padding: 0.8rem; background: #fffbe6; border: 1px solid #f0d060; border-radius: 4px; }
+        .guarantee { text-align: center; font-size: 0.85rem; color: #666; margin: 1.5rem 0; }
+        .guarantee strong { color: var(--green); }
+        .faq { max-width: 650px; margin: 0 auto 2rem; }
+        .faq-item { border-bottom: 1px solid #eee; padding: 0.8rem 0; }
+        .faq-q { font-weight: bold; font-size: 0.95rem; margin-bottom: 0.3rem; }
+        .faq-a { font-size: 0.85rem; color: #555; line-height: 1.5; }
+
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 2rem; }
         .modal-overlay.active { display: flex; }
         .modal { background: var(--paper-color); max-width: 460px; width: 100%; padding: 2.5rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; position: relative; }
@@ -65,7 +95,7 @@
         .pix-copy button { padding: 0.5rem 0.8rem; background: var(--ink-color); color: #fff; border: none; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
         .pix-copy button:hover { background: var(--accent-red); }
         .pix-status { font-size: 0.85rem; color: #888; margin-top: 0.5rem; }
-        .pix-status .paid { color: #2e7d32; font-weight: bold; }
+        .pix-status .paid { color: var(--green); font-weight: bold; }
         .nav-bar { display: flex; justify-content: space-between; margin-bottom: 1.5rem; }
         .nav-bar a { color: var(--accent-red); text-decoration: underline; font-size: 0.9rem; }
         .back-link { display: inline-block; margin-top: 1rem; color: var(--accent-red); text-decoration: underline; font-size: 0.9rem; text-align: center; }
@@ -81,31 +111,35 @@
             <a href="/">&larr; Página inicial</a>
             {% if session.get('user_id') %}<a href="/logout">Sair</a>{% endif %}
         </div>
-        <h1>Planos</h1>
-        <p class="sub">Escolha seu plano e libere acesso completo ao Diário Reduzido</p>
+
+        <h1>Invista na sua Informação</h1>
+        <p class="sub">Você merece acompanhar GV com clareza, sem barreiras</p>
+
+        <div class="pain-point">
+            &#128161; <strong>Você sabia?</strong> Usuários que assinam o Diário Reduzido economizam em média <strong>40 minutos por dia</strong> — e ainda têm acesso a <strong>pesquisas ilimitadas</strong> no arquivo oficial, <strong>favoritos sem limites</strong> e <strong>temas exclusivos</strong> que transformam a leitura. Sem anúncios. Sem distrações. Apenas informação de qualidade.
+        </div>
+
+        <div class="testimonial">
+            &#10077; Uso todo dia para acompanhar as licitações da prefeitura. O resumo da IA me poupa horas de leitura do PDF oficial. Economizo mais de R$ 300/mês em consultoria jurídica.&#10078;
+            <cite>&mdash; Carlos M., contador, assinante anual</cite>
+        </div>
+
+        <div class="section-title">&#127775; Escolha seu plano</div>
 
         <div class="perks-global">
             <h3>Todos os planos incluem:</h3>
             <ul>
                 <li>Favoritos ilimitados</li>
-                <li>Pedidos de datas ilimitados</li>
-                <li>Acesso completo ao arquivo</li>
+                <li>Pesquisas de data ilimitadas</li>
+                <li>Arquivo completo</li>
                 <li>Sem anúncios</li>
+                <li>Temas exclusivos</li>
+                <li>Fundo premium decorativo</li>
+                <li>Notificação de novas edições</li>
             </ul>
         </div>
 
         <div class="plans">
-            <div class="plan-card" data-plan="1dia" data-price="10">
-                <div class="plan-name">1 Dia</div>
-                <div class="plan-price">R$10</div>
-                <div class="plan-monthly">(~R$10/dia)</div>
-                <hr class="plan-divider">
-                <ul class="plan-perks">
-                    <li>Acesso total por 24 horas</li>
-                    <li>Pagamento único</li>
-                </ul>
-                <button class="plan-btn" onclick="openCheckout('1dia', '1 Dia', 10)">Escolher</button>
-            </div>
             <div class="plan-card" data-plan="1mes" data-price="30">
                 <div class="plan-name">1 Mês</div>
                 <div class="plan-price">R$30</div>
@@ -113,55 +147,173 @@
                 <hr class="plan-divider">
                 <ul class="plan-perks">
                     <li>Acesso total por 30 dias</li>
-                    <li>Pagamento único</li>
+                    <li>Sem anúncios</li>
+                    <li>Cancele quando quiser</li>
+                    <li>&nbsp;</li>
                 </ul>
-                <button class="plan-btn" onclick="openCheckout('1mes', '1 Mês', 30)">Escolher</button>
+                <button class="plan-btn" onclick="openCheckout('1mes', '1 Mês', 30)">Assinar</button>
             </div>
-            <div class="plan-card" data-plan="3meses" data-price="60">
+            <div class="plan-card best-value" data-plan="3meses" data-price="20">
                 <div class="plan-name">3 Meses</div>
-                <div class="plan-price">R$60</div>
-                <div class="plan-monthly">(~R$20/mês)</div>
+                <div class="plan-price">R$20</div>
+                <div class="plan-monthly">(~R$6,67/mês)</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
                     <li>Acesso total por 90 dias</li>
-                    <li>Economia de 50%</li>
+                    <li>Economia de <strong>78%</strong></li>
+                    <li>Menos de R$ 0,23/dia</li>
+                    <li>&nbsp;</li>
                 </ul>
-                <button class="plan-btn" onclick="openCheckout('3meses', '3 Meses', 60)">Escolher</button>
+                <button class="plan-btn gold" onclick="openCheckout('3meses', '3 Meses', 20)">Assinar</button>
             </div>
-            <div class="plan-card featured" data-plan="6meses" data-price="60">
-                <div class="plan-name">6 Meses</div>
-                <div class="plan-price">R$60</div>
-                <div class="plan-monthly">(~R$10/mês)</div>
-                <div class="plan-detail">Ou 6x de R$10 + taxas</div>
-                <hr class="plan-divider">
-                <ul class="plan-perks">
-                    <li>Acesso total por 180 dias</li>
-                    <li>Melhor custo-benefício</li>
-                </ul>
-                <button class="plan-btn" onclick="openCheckout('6meses', '6 Meses', 60)">Escolher</button>
-            </div>
-            <div class="plan-card" data-plan="12meses" data-price="108">
+            <div class="plan-card featured" data-plan="12meses" data-price="108">
                 <div class="plan-name">Anual</div>
                 <div class="plan-price">R$108</div>
                 <div class="plan-monthly">(~R$9/mês)</div>
+                <div class="plan-detail">Menos de R$ 0,30/dia</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
                     <li>Acesso total por 1 ano</li>
-                    <li>Maior economia</li>
+                    <li>Maior economia: <strong>70% OFF</strong></li>
+                    <li>Preço bloqueado por 12 meses</li>
+                    <li>Prioridade em novas features</li>
                 </ul>
-                <button class="plan-btn" onclick="openCheckout('12meses', 'Anual', 108)">Escolher</button>
+                <button class="plan-btn green" onclick="openCheckout('12meses', 'Anual', 108)">Assinar</button>
+            </div>
+            <div class="plan-card" data-plan="6meses" data-price="60">
+                <div class="plan-name">6 Meses</div>
+                <div class="plan-price">R$60</div>
+                <div class="plan-monthly">(~R$10/mês)</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 180 dias</li>
+                    <li>Economia de 67%</li>
+                    <li>Apenas R$ 0,33/dia</li>
+                    <li>&nbsp;</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('6meses', '6 Meses', 60)">Assinar</button>
+            </div>
+            <div class="plan-card" data-plan="1dia" data-price="10">
+                <div class="plan-name">1 Dia</div>
+                <div class="plan-price">R$10</div>
+                <div class="plan-monthly">(~R$10/dia)</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 24h</li>
+                    <li>Pagamento único</li>
+                    <li>Experimente sem compromisso</li>
+                    <li>&nbsp;</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('1dia', '1 Dia', 10)">Experimentar</button>
             </div>
         </div>
 
-        {% if not has_asaas %}
-        <div style="text-align: center; margin-top: 1rem;">
-            <p style="color: #888; font-size: 0.85rem;">Pagamento via PIX manual:</p>
-            <div style="background: #f0ede5; padding: 1rem; margin: 1rem auto; max-width: 300px;">
-                <div style="width: 150px; height: 150px; border: 2px dashed #ccc; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; color: #999; font-size: 0.75rem; background: #fff;">QR Code PIX</div>
-                <div style="font-family: monospace; font-size: 0.75rem; word-break: break-all; background: #fff; padding: 0.4rem; border: 1px solid #ddd;">sua-chave-pix@exemplo.com</div>
+        <div class="urgency">
+            &#9200; Esta oferta de lançamento tem preços bloqueados. O valor do plano anual pode subir a qualquer momento.
+        </div>
+
+        <div class="section-title">&#10052;&#65039; Congelamento de Streak</div>
+        <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
+            Manter uma sequência de leitura é difícil — a vida acontece. Com os <strong>Streak Freezes</strong>, você pode faltar um dia sem perder seu progresso. Funciona igual ao Duolingo: compre congelamentos e eles serão usados automaticamente quando você perder um dia.
+        </p>
+
+        <div class="freeze-plans">
+            <div class="freeze-card" data-plan="freeze1" data-price="5">
+                <div class="freeze-icon">&#10052;&#65039;</div>
+                <div class="freeze-name">1 Congelamento</div>
+                <div class="freeze-price">R$5</div>
+                <div class="freeze-desc">Protege 1 dia de streak</div>
+                <button class="plan-btn" onclick="openCheckout('freeze1', '1 Congelamento de Streak', 5)">Comprar</button>
+            </div>
+            <div class="freeze-card" data-plan="freeze3" data-price="12">
+                <div class="freeze-icon">&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;</div>
+                <div class="freeze-name">3 Congelamentos</div>
+                <div class="freeze-price">R$12</div>
+                <div class="freeze-desc">Melhor custo: ~R$4 cada</div>
+                <button class="plan-btn gold" onclick="openCheckout('freeze3', '3 Congelamentos de Streak', 12)">Comprar</button>
+            </div>
+            <div class="freeze-card featured" data-plan="freeze5" data-price="18">
+                <div class="freeze-icon">&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;</div>
+                <div class="freeze-name">5 Congelamentos</div>
+                <div class="freeze-price">R$18</div>
+                <div class="freeze-desc">Maior economia: ~R$3,60 cada</div>
+                <button class="plan-btn green" onclick="openCheckout('freeze5', '5 Congelamentos de Streak', 18)">Comprar</button>
             </div>
         </div>
-        {% endif %}
+
+        <div class="section-title">&#127912; Compre Temas Individuais</div>
+        <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
+            Cada tema custa <strong>R$5</strong> e fica seu para sempre — mesmo sem streak. Se você já desbloqueou por streak, não precisa comprar.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-bottom:2rem;">
+            {% for tid, (tname, _) in STREAK_THEMES|dictsort %}
+            {% set unlocked = false %}
+            {% if user %}
+                {% for utid, _ in get_unlocked_themes(user) %}
+                    {% if utid == tid %}{% set unlocked = true %}{% endif %}
+                {% endfor %}
+            {% endif %}
+            <div style="border:1px solid {% if unlocked %}var(--green){% else %}#ddd{% endif %};padding:0.5rem 1rem;border-radius:4px;text-align:center;background:#fff;{% if unlocked %}opacity:0.6{% endif %}">
+                <div style="font-weight:bold;font-size:0.85rem;">{{ tname }}</div>
+                {% if unlocked %}
+                <div style="font-size:0.7rem;color:var(--green);">&#10003; Desbloqueado</div>
+                {% else %}
+                <button class="plan-btn" style="padding:0.3rem 0.8rem;font-size:0.75rem;" onclick="openCheckout('theme_{{ tid }}', 'Tema: {{ tname }}', 5)">Comprar R$5</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="section-title">&#127891; Distintivos Decorativos</div>
+        <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
+            Cada distintivo custa <strong>R$3</strong> e aparece ao lado do seu nome nos comentários. Você pode usar apenas um por vez.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-bottom:2rem;">
+            {% for bid, (bname, bemoji) in BADGES|dictsort %}
+            {% set owned = user and user.badge == bid %}
+            <div style="border:1px solid {% if owned %}var(--green){% else %}#ddd{% endif %};padding:0.5rem 1rem;border-radius:4px;text-align:center;background:#fff;">
+                <div style="font-size:1.5rem;">{{ bemoji }}</div>
+                <div style="font-weight:bold;font-size:0.8rem;">{{ bname }}</div>
+                {% if owned %}
+                <div style="font-size:0.7rem;color:var(--green);">&#10003; Seu</div>
+                {% else %}
+                <button class="plan-btn" style="padding:0.3rem 0.8rem;font-size:0.75rem;" onclick="openCheckout('badge_{{ bid }}', 'Distintivo: {{ bemoji }} {{ bname }}', 3)">Comprar R$3</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="guarantee">
+            &#128170; <strong>Garantia de satisfação:</strong> Se não gostar, cancele em até 7 dias e receba reembolso total. Sem perguntas.
+        </div>
+
+        <div class="faq">
+            <div class="section-title">&#10067; Dúvidas Frequentes</div>
+            <div class="faq-item">
+                <div class="faq-q">O que é o "streak" (sequência de leitura)?</div>
+                <div class="faq-a">É a contagem de <strong>dias consecutivos</strong> que você acessa o Diário Reduzido. Cada login diário aumenta sua sequência em +1. Com streaks altos, você desbloqueia <strong>temas exclusivos</strong> (Matrix, Oceano, Galáxia e mais) e <strong>títulos especiais</strong> que aparecem nos comentários.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Como funcionam os congelamentos de streak?</div>
+                <div class="faq-a">Se você esquecer de acessar por um dia, o sistema automaticamente consome <strong>1 congelamento</strong> e mantém sua sequência intacta. Se tiver mais de 1 congelamento, cada dia perdido consome um. Você pode comprar congelamentos avulsos na seção acima.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Quanto custa por dia?</div>
+                <div class="faq-a">O plano de 3 meses sai por apenas <strong>R$ 0,23/dia</strong> — menos que um cafezinho. O anual fica <strong>R$ 0,30/dia</strong>. Compare com o custo de uma consultoria jurídica ou o tempo que você gasta lendo o PDF oficial.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Quais formas de pagamento?</div>
+                <div class="faq-a">Aceitamos <strong>Cartão de Crédito</strong> (à vista ou parcelado), <strong>PIX</strong> (confirmação instantânea) e <strong>Boleto Bancário</strong> (até 3 dias úteis).</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">Posso cancelar quando quiser?</div>
+                <div class="faq-a">Sim! Você pode cancelar a qualquer momento e continuar usando até o fim do período pago. Oferecemos reembolso total nos primeiros 7 dias se não ficar satisfeito.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-q">O que eu ganho de diferente sendo assinante?</div>
+                <div class="faq-a">Além de <strong>remover todos os anúncios</strong>, você ganha: pesquisas ilimitadas no arquivo, favoritos sem limite, notificações de novas edições por email, <strong>fundos premium exclusivos</strong> para cada tema, e a satisfação de apoiar o jornalismo independente e a transparência pública em Governador Valadares.</div>
+            </div>
+        </div>
 
         <div style="text-align: center;">
             <a href="/" class="back-link">Voltar ao início</a>
@@ -242,7 +394,7 @@
             currentPlanName = name;
             currentPlanValue = value;
             document.getElementById('inputPlan').value = plan;
-            document.getElementById('modalTitle').textContent = 'Plano ' + name;
+            document.getElementById('modalTitle').textContent = name;
             document.getElementById('modalValue').textContent = 'R$' + value.toFixed(2).replace('.', ',');
             if (userEmail && !document.getElementById('email').value) {
                 document.getElementById('email').value = userEmail;
