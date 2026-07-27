@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - O Diário Reduzido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <style>
+        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-light: #ccc; --accent-red: #a00; --gold: #c8962e; --green: #2e7d32; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
+        .container { max-width: 700px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 80vh; border: 1px solid #ddd; }
+        h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; text-align: center; border-bottom: 4px double var(--ink-color); padding-bottom: 1rem; margin-bottom: 2rem; }
+        .user-greeting { text-align: center; font-size: 1.1rem; margin-bottom: 2rem; color: #555; }
+        .card { background: #fff; border: 1px solid var(--border-light); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .big-link { display: block; background: var(--ink-color); color: #fff; text-decoration: none; padding: 1rem; font-family: 'Playfair Display', serif; font-size: 1.1rem; text-align: center; text-transform: uppercase; letter-spacing: 1px; transition: background 0.2s; }
+        .big-link:hover { background: var(--accent-red); }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .info-item { padding: 0.8rem; background: #f9f7f1; border: 1px solid #eee; }
+        .info-item .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+        .info-item .value { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; }
+        .info-item .value.free { color: #888; }
+        .info-item .value.paid { color: var(--green); }
+        .info-item .value.points { color: var(--gold); }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+        .badge.free { background: #eee; color: #888; }
+        .badge.paid { background: var(--green); color: #fff; }
+        .search-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: center; }
+        .search-form input[type=date] { padding: 0.6rem; font-family: 'Crimson Pro', serif; font-size: 0.95rem; border: 1px solid var(--border-light); background: white; flex: 1; min-width: 180px; }
+        .search-form button { background: var(--ink-color); color: #fff; border: none; padding: 0.6rem 1.5rem; font-family: 'Playfair Display', serif; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .search-form button:hover { background: var(--accent-red); }
+        .nav-links { display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--accent-red); text-decoration: underline; font-size: 0.9rem; }
+        .points-bar { margin-top: 1rem; }
+        .points-track { width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+        .points-fill { height: 100%; background: linear-gradient(90deg, var(--gold), #e8a317); border-radius: 4px; }
+        .points-label { font-size: 0.8rem; color: #888; margin-top: 0.3rem; text-align: center; }
+        @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Painel</h1>
+        <p class="user-greeting">Bem-vindo, <strong>{{ user.username }}</strong></p>
+
+        <div class="card">
+            <h2>&#128240; Diário mais recente</h2>
+            {% if latest %}
+            <a href="/" class="big-link">Ver edição de {{ latest.date.strftime('%d/%m/%Y') if latest.date else 'hoje' }}</a>
+            {% else %}
+            <p style="text-align:center;color:#888;">Nenhuma edição disponível ainda.</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>&#128197; Buscar por data</h2>
+            <form class="search-form" method="post" action="/search-date">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="date" name="date" required>
+                <button type="submit">Buscar</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>&#128100; Minha conta</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="label">Tier</div>
+                    <div class="value">
+                        {% if user.is_paid %}
+                        <span class="badge paid">Premium</span>
+                        {% else %}
+                        <span class="badge free">Gratuito</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="label">E-mail</div>
+                    <div class="value" style="font-size:0.9rem;">{{ user.email }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Conta criada</div>
+                    <div class="value" style="font-size:0.9rem;">{{ user.username == 'admin' and 'Administrador' or 'Usuário #' ~ user.id }}</div>
+                </div>
+                {% if user.is_paid %}
+                <div class="info-item">
+                    <div class="label">Tempo restante</div>
+                    <div class="value paid">{{ days_left }} dias</div>
+                </div>
+                {% endif %}
+                <div class="info-item">
+                    <div class="label">Pedidos de data</div>
+                    <div class="value">{{ user.requests_made }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Favoritos</div>
+                    <div class="value">{{ user.favorites|length }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>&#127775; Pontos de fidelidade</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="label">Seus pontos</div>
+                    <div class="value points">{{ user.points or 0 }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Meta para 1 mês grátis</div>
+                    <div class="value points">{{ FREE_MONTH_POINTS }}</div>
+                </div>
+            </div>
+            <div class="points-bar">
+                <div class="points-track">
+                    <div class="points-fill" style="width:{{ ((user.points or 0) / FREE_MONTH_POINTS * 100)|round|int }}%;"></div>
+                </div>
+                <div class="points-label">{{ ((user.points or 0) / FREE_MONTH_POINTS * 100)|round|int }}% do próximo mês grátis</div>
+            </div>
+        </div>
+
+        {% if not user.is_paid %}
+        <div class="card" style="text-align:center;">
+            <p style="margin-bottom:1rem;color:#666;">Libere acesso completo e remova anúncios.</p>
+            <a href="/planos" class="big-link">Ver planos</a>
+        </div>
+        {% endif %}
+
+        <div class="nav-links">
+            <a href="/">&larr; Página inicial</a>
+            <a href="/archive">Arquivo</a>
+            <a href="/planos">Planos</a>
+            <a href="/logout">Sair</a>
+        </div>
+    </div>
+</body>
+</html>

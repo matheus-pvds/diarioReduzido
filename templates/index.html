@@ -191,24 +191,16 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="article-content" id="article-text" style="display: none;">{{ post.content }}</div>
-            <div class="article-content" id="rendered-content"></div>
-            <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    var raw = document.getElementById('article-text');
-                    if (raw && raw.textContent.trim()) {
-                        marked.setOptions({ breaks: true, gfm: true });
-                        document.getElementById('rendered-content').innerHTML = marked.parse(raw.textContent);
-                    } else if (raw) {
-                        var html = '<p style="color:#888;font-style:italic;">Conteúdo temporariamente indisponível.</p>';
-                        {% if user %}
-                        html += '<button onclick="reprocessPost()" style="margin-top:0.5rem;background:var(--ink-color);color:#fff;border:none;padding:0.4rem 1.2rem;font-family:\'Playfair Display\',serif;font-size:0.8rem;cursor:pointer;text-transform:uppercase;letter-spacing:1px;">Reprocessar</button>';
-                        {% endif %}
-                        document.getElementById('rendered-content').innerHTML = html;
-                    }
-                });
-            </script>
+            <div class="article-content">
+                {% if post.content and post.content.strip() %}
+                {{ post.content|safe }}
+                {% else %}
+                <p style="color:#888;font-style:italic;">Conteúdo temporariamente indisponível.</p>
+                {% if user %}
+                <button onclick="reprocessPost()" style="margin-top:0.5rem;background:var(--ink-color);color:#fff;border:none;padding:0.4rem 1.2rem;font-family:'Playfair Display',serif;font-size:0.8rem;cursor:pointer;text-transform:uppercase;letter-spacing:1px;">Reprocessar</button>
+                {% endif %}
+                {% endif %}
+            </div>
             <div style="margin-top: 2rem; font-size: 0.8rem; border-top: 1px dashed #ccc; padding-top: 1rem; color: #888;">
                 <em>Este resumo foi gerado pelo modelo {{ post.model }} com base no PDF oficial.</em>
                 {% if post.pdf_link %}

@@ -95,7 +95,18 @@
         </div>
 
         <div class="plans">
-            <div class="plan-card" data-plan="1mes" data-price="120">
+            <div class="plan-card" data-plan="1dia" data-price="10">
+                <div class="plan-name">1 Dia</div>
+                <div class="plan-price">R$10</div>
+                <div class="plan-monthly">(~R$10/dia)</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 24 horas</li>
+                    <li>Pagamento único</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('1dia', '1 Dia', 10)">Escolher</button>
+            </div>
+            <div class="plan-card" data-plan="1mes" data-price="30">
                 <div class="plan-name">1 Mês</div>
                 <div class="plan-price">R$30</div>
                 <div class="plan-monthly">(~R$30/mês)</div>
@@ -219,13 +230,24 @@
         var currentPlan = '', currentPlanName = '', currentPlanValue = 0;
         var pixPaymentId = '', pollTimer = null;
 
+        var loggedIn = {{ 'true' if user else 'false' }};
+        var userEmail = '{{ user.email if user else '' }}';
+
         function openCheckout(plan, name, value) {
+            if (!loggedIn) {
+                window.location.href = '/login?next=/planos';
+                return;
+            }
             currentPlan = plan;
             currentPlanName = name;
             currentPlanValue = value;
             document.getElementById('inputPlan').value = plan;
             document.getElementById('modalTitle').textContent = 'Plano ' + name;
             document.getElementById('modalValue').textContent = 'R$' + value.toFixed(2).replace('.', ',');
+            if (userEmail && !document.getElementById('email').value) {
+                document.getElementById('email').value = userEmail;
+            }
+            document.getElementById('name').focus();
             selectMethod('card');
             document.getElementById('pixDisplay').classList.remove('active');
             document.getElementById('checkoutForm').style.display = 'block';

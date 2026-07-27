@@ -6,7 +6,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import json, os, requests, bs4, secrets, random, smtplib
 from datetime import datetime, timedelta, timezone
-import re
+import re, markdown
 from urllib.parse import urljoin
 from email.mime.text import MIMEText
 
@@ -71,6 +71,8 @@ class User(db.Model):
     verification_token = db.Column(db.String(200))
     reset_token = db.Column(db.String(200))
     reset_token_expires = db.Column(db.DateTime(timezone=True))
+    points = db.Column(db.Integer, default=0)
+    paid_until = db.Column(db.DateTime(timezone=True), nullable=True)
     favorites = db.relationship('Favorite', backref='user', lazy=True)
 
 class Favorite(db.Model):
@@ -84,6 +86,10 @@ class LoginAttempt(db.Model):
     ip_address = db.Column(db.String(45), nullable=False, index=True)
     timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     success = db.Column(db.Boolean, default=False)
+
+PLAN_DAYS = { '1dia': 1, '1mes': 30, '3meses': 90, '6meses': 180, '12meses': 365 }
+PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 60.00, '6meses': 60.00, '12meses': 108.00 }
+FREE_MONTH_POINTS = 360
 
 COLUMN_RENAMES = {
     'user': [('password_hash', 'password')],
@@ -277,6 +283,20 @@ def get_check_interval():
         return 15
     return 60
 
+def render_md(text):
+    return markdown.markdown(text or '', extensions=['extra'])
+
+def check_premium_expiry(user):
+    if user and user.is_paid and user.paid_until and user.paid_until < datetime.now(BRT):
+        user.is_paid = False
+        db.session.commit()
+
+def get_premium_days_left(user):
+    if not user or not user.is_paid or not user.paid_until:
+        return 0
+    delta = user.paid_until - datetime.now(BRT)
+    return max(0, delta.days)
+
 def parse_title(text):
     prefix = "TITULO:"
     for line in text.splitlines():
@@ -315,10 +335,26 @@ def perform_update_logic():
             gemini = GeminiClient()
             raw_text, model_name = gemini.process_pdf(pdf_content)
             title, content = parse_title(raw_text)
-            db.session.add(Post(
+            new_post = Post(
                 title=title, content=content, model=model_name, pdf_link=current_link
-            ))
+            )
+            db.session.add(new_post)
             db.session.commit()
+
+            try:
+                paid_users = User.query.filter_by(is_paid=True).all()
+                for pu in paid_users:
+                    if pu.email and pu.email_verified:
+                        send_email(pu.email, 'Novo Diário Reduzido disponível!',
+                            f'Olá {pu.username},\n\n'
+                            f'Uma nova edição do Diário Reduzido já está disponível:\n'
+                            f'"{title}"\n\n'
+                            f'Acesse: https://odiarioreduzidogv.vercel.app/\n\n'
+                            f'---\n'
+                            f'Para cancelar o recebimento, entre em contato conosco.')
+            except Exception as e:
+                print(f'Erro ao enviar notificações: {e}')
+
             return {"status": "success", "message": "Blog atualizado!"}
         except Exception as e:
             print(f"Erro durante o processamento: {e}")
@@ -358,7 +394,10 @@ def search_diary_by_date(target_date):
 @app.route('/')
 def index():
     user = get_current_user()
+    check_premium_expiry(user)
     post = Post.query.order_by(Post.id.desc()).first()
+    if post and post.content:
+        post.content = render_md(post.content)
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     now = datetime.now(BRT)
     interval_min = get_check_interval()
@@ -435,7 +474,7 @@ def login():
         if user and check_password_hash(user.password, request.form.get('password', '')):
             session['user_id'] = user.id
             record_attempt(ip, True)
-            return redirect(request.args.get('next') or url_for('index'))
+            return redirect(request.args.get('next') or url_for('dashboard'))
         record_attempt(ip, False)
         return render_template('login.html', error='Credenciais inválidas.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
     return render_template('login.html', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
@@ -477,7 +516,7 @@ def register():
             f'Olá {username},\n\nConfirme seu e-mail clicando no link abaixo:\n{verify_link}\n\nSe não foi você que criou esta conta, ignore esta mensagem.')
         session['user_id'] = user.id
         record_attempt(ip, True)
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     return render_template('login.html', registering=True, captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
 @app.route('/logout')
@@ -547,6 +586,8 @@ def view_post(id):
     post = Post.query.get_or_404(id)
     user = get_current_user()
     fav_ids = {f.post_id for f in user.favorites} if user else set()
+    if post and post.content:
+        post.content = render_md(post.content)
     return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids)
 
 @app.route('/search-date', methods=['POST'])
@@ -580,6 +621,7 @@ def search_date():
         db.session.add(new_post)
         user.requests_made += 1
         db.session.commit()
+        new_post.content = render_md(new_post.content)
         return redirect(url_for('view_post', id=new_post.id))
     except Exception as e:
         print(f"Erro durante o processamento: {e}")
@@ -609,6 +651,16 @@ def favorites():
     posts = [f.post for f in user.favorites]
     return render_template('archive.html', posts=posts, user=user, fav_post_ids={p.id for p in posts}, favorites_mode=True)
 
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user = get_current_user()
+    check_premium_expiry(user)
+    latest = Post.query.order_by(Post.id.desc()).first()
+    days_left = get_premium_days_left(user)
+    account_created = user.id  # approximate; we don't store created_at, use id as proxy
+    return render_template('dashboard.html', user=user, latest=latest, days_left=days_left, FREE_MONTH_POINTS=FREE_MONTH_POINTS)
+
 @app.route('/coffee')
 def coffee_redirect():
     return redirect(url_for('plans'))
@@ -616,7 +668,8 @@ def coffee_redirect():
 @app.route('/planos')
 def plans():
     has_asaas = bool(os.getenv('ASAAS_API_KEY'))
-    return render_template('coffee.html', has_asaas=has_asaas)
+    user = get_current_user()
+    return render_template('coffee.html', has_asaas=has_asaas, user=user)
 
 @app.route('/api/create-checkout', methods=['POST'])
 @login_required
@@ -630,6 +683,7 @@ def create_checkout():
     plan = request.form.get('plan', '')
     billing_type = request.form.get('billing_type', 'card')
     plans_map = {
+        '1dia': (10.00, '1 Dia - Diário Reduzido'),
         '1mes': (30.00, '1 Mês - Diário Reduzido'),
         '3meses': (60.00, '3 Meses - Diário Reduzido'),
         '6meses': (60.00, '6 Meses - Diário Reduzido'),
@@ -684,9 +738,24 @@ def asaas_webhook():
     if user_id:
         target = User.query.get(user_id)
         if target:
+            plan_key = payload.get('payment', {}).get('externalReference', '').split('_')[-1]
+            days = PLAN_DAYS.get(plan_key, 30)
+            value = PLAN_VALUES.get(plan_key, 30.0)
             target.is_paid = True
+            now = datetime.now(BRT)
+            if target.paid_until and target.paid_until > now:
+                target.paid_until += timedelta(days=days)
+            else:
+                target.paid_until = now + timedelta(days=days)
+            target.points = (target.points or 0) + int(value)
+            while target.points >= FREE_MONTH_POINTS:
+                target.points -= FREE_MONTH_POINTS
+                if target.paid_until and target.paid_until > now:
+                    target.paid_until += timedelta(days=30)
+                else:
+                    target.paid_until = now + timedelta(days=30)
             db.session.commit()
-            print(f'Pagamento confirmado para usuário {user_id}')
+            print(f'Pagamento confirmado para usuário {user_id}, plano {plan_key}, {days} dias adicionados')
     return jsonify({'status': 'ok'})
 
 @app.route('/api/reprocess-latest', methods=['POST'])
