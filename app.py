@@ -289,7 +289,7 @@ def get_purchasable_themes(user):
     result = []
     for req_streak, (theme_id, theme_name) in sorted(STREAK_THEMES.items()):
         already = streak >= req_streak or theme_id in purchased
-        result.append((theme_id, theme_name, already))
+        result.append((req_streak, theme_name, already))
     return result
 
 def get_purchasable_badges(user):
