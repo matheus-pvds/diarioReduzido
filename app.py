@@ -60,6 +60,12 @@ def migrate_columns():
     for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
                                ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
         existing = {c['name'] for c in inspector.get_columns(table_name)}
+        if 'password_hash' in existing and 'password' not in existing:
+            db.session.execute(db.text(f'ALTER TABLE "{table_name}" RENAME COLUMN "password_hash" TO "password"'))
+            existing = {c['name'] for c in inspector.get_columns(table_name)}
+        elif 'password_hash' in existing and 'password' in existing:
+            db.session.execute(db.text(f'ALTER TABLE "{table_name}" DROP COLUMN "password_hash"'))
+            existing = {c['name'] for c in inspector.get_columns(table_name)}
         for col in model.__table__.columns:
             if col.name not in existing:
                 col_type = col.type.compile(db.engine.dialect)
