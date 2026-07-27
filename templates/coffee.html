@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planos - O Diário Reduzido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <style>
+        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --accent-red: #a00; --gold: #c8962e; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 100vh; border: 1px solid #ddd; }
+        h1 { font-family: 'Playfair Display', serif; font-size: 2.8rem; text-align: center; border-bottom: 4px double var(--border-heavy); padding-bottom: 1rem; margin-bottom: 0.5rem; }
+        .sub { text-align: center; font-style: italic; color: #555; margin-bottom: 2.5rem; font-size: 1.1rem; }
+        .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.2rem; margin-bottom: 2.5rem; }
+        .plan-card { background: #fff; border: 1px solid #ddd; padding: 1.8rem 1.2rem; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; display: flex; flex-direction: column; }
+        .plan-card:hover { border-color: var(--ink-color); transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+        .plan-card.featured { border: 2px solid var(--gold); }
+        .plan-card.featured::before { content: 'MELHOR'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #fff; font-family: 'Playfair Display', serif; font-size: 0.7rem; padding: 2px 12px; letter-spacing: 2px; }
+        .plan-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.5rem; }
+        .plan-price { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; margin-bottom: 0.2rem; }
+        .plan-price span { font-size: 1rem; font-weight: 400; color: #666; }
+        .plan-monthly { font-size: 0.85rem; color: #888; margin-bottom: 1rem; }
+        .plan-detail { font-size: 0.8rem; color: #666; margin-bottom: 0.3rem; }
+        .plan-divider { border: none; border-top: 1px solid #eee; margin: 1rem 0; }
+        .plan-perks { list-style: none; padding: 0; font-size: 0.85rem; flex: 1; }
+        .plan-perks li { padding: 0.3rem 0; }
+        .plan-perks li::before { content: '\2713 '; color: #2e7d32; font-weight: bold; }
+        .plan-btn { display: inline-block; margin-top: 1rem; background: var(--ink-color); color: #fff; border: none; padding: 0.6rem 1.5rem; font-family: 'Playfair Display', serif; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: background 0.2s; }
+        .plan-btn:hover { background: var(--accent-red); }
+        .perks-global { background: #f0ede5; padding: 1.5rem; border-radius: 4px; margin-bottom: 2rem; text-align: center; }
+        .perks-global h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 0.8rem; }
+        .perks-global ul { list-style: none; padding: 0; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
+        .perks-global li { font-size: 0.95rem; }
+        .perks-global li::before { content: '\2713 '; color: #2e7d32; font-weight: bold; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 2rem; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--paper-color); max-width: 460px; width: 100%; padding: 2.5rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; position: relative; }
+        .modal-close { position: absolute; top: 10px; right: 16px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999; }
+        .modal-close:hover { color: var(--ink-color); }
+        .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.6rem; margin-bottom: 0.3rem; }
+        .modal .plan-summary { color: #666; font-style: italic; margin-bottom: 0.3rem; font-size: 0.95rem; }
+        .modal .plan-value { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; margin-bottom: 1.2rem; }
+        .payment-methods { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; }
+        .pm-option { flex: 1; border: 2px solid #ddd; padding: 0.6rem 0.3rem; cursor: pointer; transition: all 0.2s; font-size: 0.8rem; background: #fff; border-radius: 4px; }
+        .pm-option.selected { border-color: var(--ink-color); background: #f0ede5; font-weight: bold; }
+        .pm-option input { display: none; }
+        .form-group { margin-bottom: 1rem; text-align: left; }
+        .form-group label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin-bottom: 0.2rem; color: #555; }
+        .form-group input { width: 100%; padding: 0.6rem; font-family: 'Crimson Pro', serif; font-size: 0.95rem; border: 1px solid #ccc; background: white; }
+        .form-group input:focus { outline: none; border-color: var(--ink-color); }
+        .pay-btn { width: 100%; background: #2e7d32; color: #fff; border: none; padding: 0.8rem; font-family: 'Playfair Display', serif; font-size: 1rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5rem; transition: background 0.2s; }
+        .pay-btn:hover { background: #1b5e20; }
+        .pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pay-btn .btn-text { display: inline; }
+        .pay-btn.loading .btn-text { display: none; }
+        .modal-error { color: var(--accent-red); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+        .pix-display { display: none; margin-top: 1rem; }
+        .pix-display.active { display: block; }
+        .pix-display img { max-width: 220px; margin: 0 auto 1rem; display: block; border: 1px solid #ddd; padding: 10px; background: #fff; }
+        .pix-copy { display: flex; gap: 0.3rem; margin-bottom: 0.8rem; }
+        .pix-copy input { flex: 1; padding: 0.5rem; font-family: monospace; font-size: 0.75rem; border: 1px solid #ccc; background: #fff; word-break: break-all; }
+        .pix-copy button { padding: 0.5rem 0.8rem; background: var(--ink-color); color: #fff; border: none; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
+        .pix-copy button:hover { background: var(--accent-red); }
+        .pix-status { font-size: 0.85rem; color: #888; margin-top: 0.5rem; }
+        .pix-status .paid { color: #2e7d32; font-weight: bold; }
+        .nav-bar { display: flex; justify-content: space-between; margin-bottom: 1.5rem; }
+        .nav-bar a { color: var(--accent-red); text-decoration: underline; font-size: 0.9rem; }
+        .back-link { display: inline-block; margin-top: 1rem; color: var(--accent-red); text-decoration: underline; font-size: 0.9rem; text-align: center; }
+        .loading-spinner { display: none; width: 20px; height: 20px; border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .pay-btn.loading .loading-spinner { display: block; }
+        @media (max-width: 600px) { .plans { grid-template-columns: 1fr 1fr; } .payment-methods { flex-direction: column; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-bar">
+            <a href="/">&larr; Página inicial</a>
+            {% if session.get('user_id') %}<a href="/logout">Sair</a>{% endif %}
+        </div>
+        <h1>Planos</h1>
+        <p class="sub">Escolha seu plano e libere acesso completo ao Diário Reduzido</p>
+
+        <div class="perks-global">
+            <h3>Todos os planos incluem:</h3>
+            <ul>
+                <li>Favoritos ilimitados</li>
+                <li>Pedidos de datas ilimitados</li>
+                <li>Acesso completo ao arquivo</li>
+                <li>Sem anúncios</li>
+            </ul>
+        </div>
+
+        <div class="plans">
+            <div class="plan-card" data-plan="1mes" data-price="120">
+                <div class="plan-name">1 Mês</div>
+                <div class="plan-price">R$120</div>
+                <div class="plan-monthly">(~R$120/mês)</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 30 dias</li>
+                    <li>Pagamento único</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('1mes', '1 Mês', 120)">Escolher</button>
+            </div>
+            <div class="plan-card" data-plan="3meses" data-price="60">
+                <div class="plan-name">3 Meses</div>
+                <div class="plan-price">R$60</div>
+                <div class="plan-monthly">(~R$20/mês)</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 90 dias</li>
+                    <li>Economia de 50%</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('3meses', '3 Meses', 60)">Escolher</button>
+            </div>
+            <div class="plan-card featured" data-plan="6meses" data-price="60">
+                <div class="plan-name">6 Meses</div>
+                <div class="plan-price">R$60</div>
+                <div class="plan-monthly">(~R$10/mês)</div>
+                <div class="plan-detail">Ou 6x de R$10 + taxas</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 180 dias</li>
+                    <li>Melhor custo-benefício</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('6meses', '6 Meses', 60)">Escolher</button>
+            </div>
+            <div class="plan-card" data-plan="12meses" data-price="108">
+                <div class="plan-name">Anual</div>
+                <div class="plan-price">R$108</div>
+                <div class="plan-monthly">(~R$9/mês)</div>
+                <hr class="plan-divider">
+                <ul class="plan-perks">
+                    <li>Acesso total por 1 ano</li>
+                    <li>Maior economia</li>
+                </ul>
+                <button class="plan-btn" onclick="openCheckout('12meses', 'Anual', 108)">Escolher</button>
+            </div>
+        </div>
+
+        {% if not has_asaas %}
+        <div style="text-align: center; margin-top: 1rem;">
+            <p style="color: #888; font-size: 0.85rem;">Pagamento via PIX manual:</p>
+            <div style="background: #f0ede5; padding: 1rem; margin: 1rem auto; max-width: 300px;">
+                <div style="width: 150px; height: 150px; border: 2px dashed #ccc; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; color: #999; font-size: 0.75rem; background: #fff;">QR Code PIX</div>
+                <div style="font-family: monospace; font-size: 0.75rem; word-break: break-all; background: #fff; padding: 0.4rem; border: 1px solid #ddd;">sua-chave-pix@exemplo.com</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div style="text-align: center;">
+            <a href="/" class="back-link">Voltar ao início</a>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <button class="modal-close" id="modalClose">&times;</button>
+            <h2 id="modalTitle">Plano</h2>
+            <p class="plan-summary" id="modalSummary">Preencha seus dados</p>
+            <div class="plan-value" id="modalValue">R$0</div>
+
+            <form id="checkoutForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="plan" id="inputPlan" value="">
+
+                <div class="payment-methods">
+                    <label class="pm-option selected" id="pmCard">
+                        <input type="radio" name="billing_type" value="card" checked onchange="selectMethod('card')">
+                        Cartão
+                    </label>
+                    <label class="pm-option" id="pmPix">
+                        <input type="radio" name="billing_type" value="pix" onchange="selectMethod('pix')">
+                        PIX
+                    </label>
+                    <label class="pm-option" id="pmBoleto">
+                        <input type="radio" name="billing_type" value="boleto" onchange="selectMethod('boleto')">
+                        Boleto
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Nome completo</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="cpf">CPF</label>
+                    <input type="text" id="cpf" name="cpf" required placeholder="000.000.000-00">
+                </div>
+
+                <button type="submit" class="pay-btn" id="payBtn">
+                    <span class="btn-text">Pagar</span>
+                    <span class="loading-spinner"></span>
+                </button>
+                <div class="modal-error" id="modalError"></div>
+            </form>
+
+            <div class="pix-display" id="pixDisplay">
+                <p style="font-weight:bold; margin-bottom:0.5rem;">Pague com PIX</p>
+                <img id="pixImg" src="" alt="QR Code PIX">
+                <div class="pix-copy">
+                    <input type="text" id="pixPayload" readonly onclick="this.select()">
+                    <button onclick="copyPix()">Copiar</button>
+                </div>
+                <p class="pix-status" id="pixStatus">Aguardando pagamento...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var currentPlan = '', currentPlanName = '', currentPlanValue = 0;
+        var pixPaymentId = '', pollTimer = null;
+
+        function openCheckout(plan, name, value) {
+            currentPlan = plan;
+            currentPlanName = name;
+            currentPlanValue = value;
+            document.getElementById('inputPlan').value = plan;
+            document.getElementById('modalTitle').textContent = 'Plano ' + name;
+            document.getElementById('modalValue').textContent = 'R$' + value.toFixed(2).replace('.', ',');
+            selectMethod('card');
+            document.getElementById('pixDisplay').classList.remove('active');
+            document.getElementById('checkoutForm').style.display = 'block';
+            document.getElementById('modalError').style.display = 'none';
+            document.getElementById('payBtn').className = 'pay-btn';
+            document.getElementById('payBtn').disabled = false;
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function selectMethod(method) {
+            document.querySelectorAll('.pm-option').forEach(function(el) { el.classList.remove('selected'); });
+            document.getElementById('pm' + method.charAt(0).toUpperCase() + method.slice(1)).classList.add('selected');
+            var btn = document.getElementById('payBtn');
+            var labels = { card: 'Pagar com cartão', pix: 'Gerar PIX', boleto: 'Gerar Boleto' };
+            btn.querySelector('.btn-text').textContent = labels[method] || 'Pagar';
+        }
+
+        document.getElementById('modalClose').addEventListener('click', function() {
+            document.getElementById('modalOverlay').classList.remove('active');
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        });
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            }
+        });
+
+        document.getElementById('checkoutForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = document.getElementById('payBtn');
+            var errorEl = document.getElementById('modalError');
+            btn.className = 'pay-btn loading';
+            btn.disabled = true;
+            errorEl.style.display = 'none';
+
+            var formData = new FormData(this);
+
+            fetch('/api/create-checkout', { method: 'POST', body: formData })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        errorEl.textContent = data.error;
+                        errorEl.style.display = 'block';
+                        btn.className = 'pay-btn';
+                        btn.disabled = false;
+                        return;
+                    }
+                    if (data.method === 'pix') {
+                        document.getElementById('checkoutForm').style.display = 'none';
+                        document.getElementById('pixDisplay').classList.add('active');
+                        if (data.encoded_image) {
+                            document.getElementById('pixImg').src = 'data:image/png;base64,' + data.encoded_image;
+                        }
+                        document.getElementById('pixPayload').value = data.payload || '';
+                        pixPaymentId = data.payment_id;
+                        startPixPoll();
+                    } else if (data.url) {
+                        window.location.href = data.url;
+                    }
+                })
+                .catch(function() {
+                    errorEl.textContent = 'Erro de conexão. Tente novamente.';
+                    errorEl.style.display = 'block';
+                    btn.className = 'pay-btn';
+                    btn.disabled = false;
+                });
+        });
+
+        function startPixPoll() {
+            if (pollTimer) clearInterval(pollTimer);
+            var statusEl = document.getElementById('pixStatus');
+            pollTimer = setInterval(function() {
+                fetch('/api/payment-status/' + pixPaymentId)
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.status === 'RECEIVED' || data.status === 'CONFIRMED') {
+                            statusEl.innerHTML = '<span class="paid">Pagamento confirmado!</span>';
+                            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                            setTimeout(function() { window.location.href = '/'; }, 2000);
+                        } else if (data.status === 'PENDING') {
+                            statusEl.textContent = 'Aguardando pagamento...';
+                        } else {
+                            statusEl.textContent = 'Status: ' + data.status;
+                        }
+                    })
+                    .catch(function() {
+                        statusEl.textContent = 'Verificando...';
+                    });
+            }, 4000);
+        }
+
+        function copyPix() {
+            var input = document.getElementById('pixPayload');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).then(function() {
+                var btn = document.querySelector('.pix-copy button');
+                var orig = btn.textContent;
+                btn.textContent = 'Copiado!';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

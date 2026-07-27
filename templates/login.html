@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Registrar' if registering else 'Entrar' }} - O Diário Reduzido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <style>
+        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-light: #ccc; --accent-red: #a00; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
+        .container { max-width: 400px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 60vh; border: 1px solid #ddd; margin-top: 10vh; text-align: center; }
+        h1 { font-family: 'Playfair Display', serif; font-size: 2rem; margin-bottom: 0.5rem; }
+        .switch { font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .switch a { color: var(--accent-red); }
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        label { display: block; font-weight: bold; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.3rem; }
+        input { width: 100%; padding: 0.7rem; font-family: 'Crimson Pro', serif; font-size: 1rem; border: 1px solid var(--border-light); background: white; }
+        button { background: var(--ink-color); color: white; border: none; padding: 0.7rem 2rem; font-family: 'Playfair Display', serif; font-size: 1rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        button:hover { background: var(--accent-red); }
+        .error { color: var(--accent-red); margin-bottom: 1rem; font-style: italic; }
+        .back-link { display: block; margin-top: 2rem; font-size: 0.9rem; color: #666; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ 'Criar Conta' if registering else 'Entrar' }}</h1>
+        <p class="switch">
+            {% if registering %}
+                Já tem conta? <a href="/login">Entre aqui</a>
+            {% else %}
+                Novo por aqui? <a href="/register">Crie uma conta</a>
+            {% endif %}
+        </p>
+        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="form-group">
+                <label for="username">Usuário</label>
+                <input type="text" id="username" name="username" required minlength="3" maxlength="80" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Senha</label>
+                <input type="password" id="password" name="password" required minlength="4" autocomplete="current-password">
+            </div>
+            <div class="form-group">
+                <label for="captcha">Quanto é {{ captcha_question }}?</label>
+                <input type="text" id="captcha" name="captcha" required autocomplete="off" style="width: 100px; text-align: center;">
+            </div>
+            <button type="submit">{{ 'Criar' if registering else 'Entrar' }}</button>
+        </form>
+        <a href="/" class="back-link">Voltar ao início</a>
+    </div>
+</body>
+</html>

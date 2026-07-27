@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Favoritos' if favorites_mode else 'Arquivo' }} - O Diário Reduzido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <style>
+        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-heavy: #333; --border-light: #ccc; --accent-red: #a00; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
+        .container { max-width: 700px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 100vh; border: 1px solid #ddd; }
+        h1 { font-family: 'Playfair Display', serif; font-size: 2.5rem; text-align: center; border-bottom: 4px double var(--border-heavy); padding-bottom: 1rem; margin-bottom: 2rem; }
+        .top-bar { display: flex; justify-content: space-between; margin-bottom: 1rem; font-size: 0.9rem; }
+        .top-bar a { color: var(--accent-red); text-decoration: underline; }
+        .post-entry { padding: 1rem 0; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 0.8rem; }
+        .post-entry:last-child { border-bottom: none; }
+        .post-info { flex: 1; }
+        .post-date { font-size: 0.85rem; color: #666; font-style: italic; }
+        .post-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; margin: 0.3rem 0; }
+        .post-title a { color: var(--ink-color); text-decoration: none; }
+        .post-title a:hover { color: var(--accent-red); }
+        .post-model { font-size: 0.8rem; color: #888; }
+        .empty { text-align: center; padding: 4rem 0; font-style: italic; color: #777; }
+        .fav-star { background: none; border: none; cursor: pointer; font-size: 1.5rem; color: #ccc; padding: 0.2rem; transition: color 0.2s; flex-shrink: 0; }
+        .fav-star.active { color: #e8a317; }
+        .fav-star:hover { color: #e8a317; }
+        footer { margin-top: 3rem; border-top: 1px solid var(--border-heavy); padding-top: 1rem; text-align: center; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #666; }
+        .nav-links { text-align: center; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        .nav-links a { color: var(--accent-red); text-decoration: underline; margin: 0 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <a href="/">&larr; Página inicial</a>
+            <a href="/logout">Sair</a>
+        </div>
+        <h1>{{ 'Favoritos' if favorites_mode else 'Arquivo' }}</h1>
+        {% if not favorites_mode %}
+        <div class="nav-links">
+            <a href="/favorites">Favoritos</a>
+            <a href="/planos">Planos</a>
+        </div>
+        {% endif %}
+        {% if posts %}
+            {% for p in posts %}
+            <div class="post-entry">
+                <div class="post-info">
+                    <div class="post-date">{{ p.date.strftime('%d/%m/%Y %H:%M') if p.date else '' }}</div>
+                    <div class="post-title"><a href="/post/{{ p.id }}">{{ p.title }}</a></div>
+                    <div class="post-model">Modelo: {{ p.model }}</div>
+                </div>
+                <button class="fav-star {% if p.id in fav_post_ids %}active{% endif %}" data-post-id="{{ p.id }}" title="Favoritar">&starf;</button>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty">
+                <p>{{ 'Nenhum favorito ainda.' if favorites_mode else 'Nenhum artigo publicado ainda.' }}</p>
+            </div>
+        {% endif %}
+        <footer>&copy; 2026 O Diário Reduzido</footer>
+    </div>
+    <script>
+    document.querySelectorAll('.fav-star').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var postId = this.getAttribute('data-post-id');
+            fetch('/favorite/' + postId, { method: 'POST' }).then(function(r) { return r.json(); }).then(function(d) {
+                if (d.error) { alert(d.error); return; }
+                btn.classList.toggle('active', d.favorited);
+                if (!d.favorited) {
+                    var isFavPage = window.location.pathname === '/favorites';
+                    if (isFavPage) { btn.closest('.post-entry').remove(); }
+                }
+            }).catch(function() {});
+        });
+    });
+    </script>
+</body>
+</html>

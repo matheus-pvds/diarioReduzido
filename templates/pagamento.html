@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Pagamento Confirmado' if sucesso else 'Falha no Pagamento' }} - O Diário Reduzido</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #e0ddd5; font-family: 'Crimson Pro', serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 2rem; }
+        .card { background: #f9f7f1; padding: 3rem; text-align: center; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #ddd; }
+        h1 { font-family: 'Playfair Display', serif; font-size: 2rem; margin-bottom: 1rem; }
+        .icon { font-size: 3rem; margin-bottom: 1rem; }
+        p { color: #555; margin-bottom: 2rem; font-size: 1.1rem; }
+        a { color: #a00; text-decoration: underline; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        {% if sucesso %}
+        <div class="icon">&#10003;</div>
+        <h1>Pagamento Confirmado!</h1>
+        <p>Seu acesso já foi liberado. Aproveite todos os recursos do Diário Reduzido.</p>
+        {% else %}
+        <div class="icon">&#10007;</div>
+        <h1>Falha no Pagamento</h1>
+        <p>Não foi possível processar seu pagamento. Tente novamente ou escolha outra forma de pagamento.</p>
+        {% endif %}
+        <a href="/">Voltar ao início</a>
+    </div>
+</body>
+</html>

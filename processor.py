@@ -15,18 +15,31 @@ class GeminiClient:
             raise ValueError("GEMINI_API_KEY deve estar configurada no arquivo .env")
         self.client = genai.Client(api_key=self.api_key)
 
-    def process_pdf(self, pdf_data, prompt="Resuma de forma detalhada e objetiva as principais decisões, nomeações e editais deste diário oficial. Importante: quantifique e conte todos os atos repetitivos (por exemplo, se houver rescisões de contrato ou nomeações, conte e informe o número total exato de servidores afetados em vez de usar termos vagos como 'muitos' ou 'vários'). VOCÊ DEVE RESPONDER APENAS EM PORTUGUÊS DO BRASIL. NÃO USE INGLÊS EM NENHUMA HIPÓTESE."):
+    def process_pdf(self, pdf_data, prompt=None):
+        if prompt is None:
+            prompt = (
+                "Analise este diário oficial e produza:\n"
+                "1. Um título jornalístico impactante que resuma a principal notícia do dia (máximo 15 palavras)\n"
+                "2. Um resumo detalhado e objetivo das principais decisões, nomeações e editais\n"
+                "3. Uma seção '### Notas do Editor' ao final com um comentário sobre o que está acontecendo na cidade que se relaciona com estas publicações, conectando os atos do diário ao contexto municipal\n\n"
+                "Formato obrigatório:\n"
+                "TITULO: <título impactante>\n\n"
+                "<resumo detalhado em markdown>\n\n"
+                "### Notas do Editor\n"
+                "<comentários e análise contextual>\n\n"
+                "Importante: quantifique e conte todos os atos repetitivos (por exemplo, se houver rescisões de contrato ou nomeações, conte e informe o número total exato de servidores afetados em vez de usar termos vagos como 'muitos' ou 'vários'). "
+                "VOCÊ DEVE RESPONDER APENAS EM PORTUGUÊS DO BRASIL. NÃO USE INGLÊS EM NENHUMA HIPÓTESE."
+            )
         """
         Processes PDF bytes using Gemini with dynamic failover and in-memory streaming.
         """
         # Lista estática ordenada do "pior" (lite/rápido) para o "melhor" (pro/robusto)
         # Evita latência de rede consultando a API de modelos em ambiente serverless.
         gemini_models = [
-            "gemini-3.1-flash-lite",
-            "gemini-2.5-flash-lite",
-            "gemini-2.0-flash-lite",
             "gemini-3.5-flash",
+            "gemini-3.1-flash-lite",
             "gemini-2.5-flash",
+            "gemini-2.0-flash-lite",
             "gemini-2.0-flash",
             "gemini-3.1-pro-preview",
             "gemini-2.5-pro"
