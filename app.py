@@ -239,7 +239,12 @@ def get_check_interval():
         return 15
     if not post.content or not post.content.strip():
         return 15
-    if post.date and (datetime.now(BRT) - post.date) > timedelta(hours=24):
+    post_date = post.date
+    if not post_date:
+        return 15
+    if post_date.tzinfo is None:
+        post_date = post_date.replace(tzinfo=BRT)
+    if (datetime.now(BRT) - post_date) > timedelta(hours=24):
         return 15
     return 60
 
