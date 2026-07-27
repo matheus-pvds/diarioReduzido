@@ -201,6 +201,12 @@
                 {% endif %}
                 {% endif %}
             </div>
+            {% if post.commentary and post.commentary.strip() %}
+            <div style="margin-top: 2rem; padding: 1.2rem; background: #f5f0e8; border-left: 4px solid var(--accent-red); font-style: italic;">
+                <h3 style="font-family:'Playfair Display',serif; font-size:1.1rem; margin-bottom:0.5rem;">&#9998; Notas do Editor</h3>
+                {{ post.commentary|safe }}
+            </div>
+            {% endif %}
             <div style="margin-top: 2rem; font-size: 0.8rem; border-top: 1px dashed #ccc; padding-top: 1rem; color: #888;">
                 <em>Este resumo foi gerado pelo modelo {{ post.model }} com base no PDF oficial.</em>
                 {% if post.pdf_link %}

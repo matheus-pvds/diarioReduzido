@@ -50,6 +50,7 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    commentary = db.Column(db.Text, nullable=True)
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
@@ -156,6 +157,48 @@ def migrate_columns():
                     pass
     db.session.commit()
 
+def parse_content(text):
+    prefix = "TITULO:"
+    title = "Edição do Diário Oficial"
+    content = text.strip()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.upper().startswith(prefix):
+            t = stripped[len(prefix):].strip()
+            if t:
+                title = t
+            content = text.replace(line, '', 1).strip()
+            break
+    commentary = ''
+    marker = '### Notas do Editor'
+    idx = content.find(marker)
+    if idx != -1:
+        commentary = content[idx + len(marker):].strip()
+        content = content[:idx].strip()
+    return title, content, commentary
+
+def parse_title(text):
+    title, content, _ = parse_content(text)
+    return title, content
+
+def migrate_existing_posts():
+    posts = Post.query.filter(Post.commentary.is_(None)).all()
+    count = 0
+    for post in posts:
+        raw = post.content
+        if not raw:
+            continue
+        title, content, commentary = parse_content(raw)
+        if commentary and not post.commentary:
+            post.commentary = commentary
+            post.content = content
+        if title and title != "Edição do Diário Oficial":
+            post.title = title
+        count += 1
+    db.session.commit()
+    print(f'Migration: {count} posts atualizados')
+    return count
+
 with app.app_context():
     db.create_all()
     migrate_columns()
@@ -172,6 +215,7 @@ with app.app_context():
     if not AppConfig.query.filter_by(key='is_checking').first():
         db.session.add(AppConfig(key='is_checking', value='false'))
     db.session.commit()
+    migrate_existing_posts()
 
 @app.after_request
 def add_security_headers(response):
@@ -297,18 +341,6 @@ def get_premium_days_left(user):
     delta = user.paid_until - datetime.now(BRT)
     return max(0, delta.days)
 
-def parse_title(text):
-    prefix = "TITULO:"
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.upper().startswith(prefix):
-            title = stripped[len(prefix):].strip()
-            content = text.replace(line, '', 1).strip()
-            if not title:
-                title = "Edição do Diário Oficial"
-            return title, content
-    return "Edição do Diário Oficial", text.strip()
-
 def fetch_daily_diary():
     url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     try:
@@ -334,9 +366,9 @@ def perform_update_logic():
             pdf_content = requests.get(current_link, timeout=60).content
             gemini = GeminiClient()
             raw_text, model_name = gemini.process_pdf(pdf_content)
-            title, content = parse_title(raw_text)
+            title, content, commentary = parse_content(raw_text)
             new_post = Post(
-                title=title, content=content, model=model_name, pdf_link=current_link
+                title=title, content=content, commentary=commentary, model=model_name, pdf_link=current_link
             )
             db.session.add(new_post)
             db.session.commit()
@@ -396,8 +428,11 @@ def index():
     user = get_current_user()
     check_premium_expiry(user)
     post = Post.query.order_by(Post.id.desc()).first()
-    if post and post.content:
-        post.content = render_md(post.content)
+    if post:
+        if post.content:
+            post.content = render_md(post.content)
+        if post.commentary:
+            post.commentary = render_md(post.commentary)
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     now = datetime.now(BRT)
     interval_min = get_check_interval()
@@ -586,8 +621,11 @@ def view_post(id):
     post = Post.query.get_or_404(id)
     user = get_current_user()
     fav_ids = {f.post_id for f in user.favorites} if user else set()
-    if post and post.content:
-        post.content = render_md(post.content)
+    if post:
+        if post.content:
+            post.content = render_md(post.content)
+        if post.commentary:
+            post.commentary = render_md(post.commentary)
     return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids)
 
 @app.route('/search-date', methods=['POST'])
@@ -614,14 +652,16 @@ def search_date():
     try:
         pdf_content = requests.get(pdf_link, timeout=60).content
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
-        title, content = parse_title(raw_text)
+        title, content, commentary = parse_content(raw_text)
         new_post = Post(
-            title=title, content=content, model=model_name, pdf_link=pdf_link
+            title=title, content=content, commentary=commentary, model=model_name, pdf_link=pdf_link
         )
         db.session.add(new_post)
         user.requests_made += 1
         db.session.commit()
         new_post.content = render_md(new_post.content)
+        if new_post.commentary:
+            new_post.commentary = render_md(new_post.commentary)
         return redirect(url_for('view_post', id=new_post.id))
     except Exception as e:
         print(f"Erro durante o processamento: {e}")
@@ -774,9 +814,10 @@ def reprocess_latest():
     try:
         pdf_content = requests.get(post.pdf_link, timeout=60).content
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
-        title, content = parse_title(raw_text)
+        title, content, commentary = parse_content(raw_text)
         post.title = title
         post.content = content
+        post.commentary = commentary
         post.model = model_name
         db.session.commit()
         print(f'Post {post.id} reprocessado com sucesso')
@@ -785,6 +826,15 @@ def reprocess_latest():
         db.session.rollback()
         print(f'Erro ao reprocessar: {e}')
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/migrate-content')
+@login_required
+def migrate_existing_posts_route():
+    user = get_current_user()
+    if user.username != 'admin':
+        return jsonify({'error': 'Apenas admin'}), 403
+    count = migrate_existing_posts()
+    return jsonify({'migrated': count})
 
 @app.route('/pagamento/sucesso')
 def pagamento_sucesso():
