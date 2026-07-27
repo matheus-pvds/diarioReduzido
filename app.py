@@ -1421,7 +1421,7 @@ def add_comment(post_id):
     comment = Comment(content=content, author=user, post=post)
     db.session.add(comment)
     db.session.commit()
-    return redirect(url_for('view_post', id=post_id) + '#comments')
+    return redirect(request.referrer or url_for('index') + '#comments')
 
 @app.route('/theme', methods=['POST'])
 @login_required

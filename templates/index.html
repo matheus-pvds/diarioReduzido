@@ -372,8 +372,8 @@
             </div>
 
             <div class="comments-section" id="comments">
-                <h3 onclick="toggleComments()">&#128172; Comentários ({{ post.comments|length }}) <span id="commentsToggle" style="font-size:0.8rem;">[mostrar]</span></h3>
-                <div class="comments-wrap collapsed" id="commentsWrap">
+                <h3 onclick="toggleComments()">&#128172; Comentários ({{ post.comments|length }}) <span id="commentsToggle" style="font-size:0.8rem;">{% if user %}[esconder]{% else %}[mostrar]{% endif %}</span></h3>
+                <div class="comments-wrap{% if not user %} collapsed{% endif %}" id="commentsWrap">
                 {% if post.comments %}
                     {% for c in post.comments %}
                     <div class="comment">
@@ -501,6 +501,13 @@
             toggle.textContent = '[mostrar]';
         }
     }
+    {% if user %}
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('commentsWrap').classList.remove('collapsed');
+        var t = document.getElementById('commentsToggle');
+        if (t) t.textContent = '[esconder]';
+    });
+    {% endif %}
     document.addEventListener('DOMContentLoaded', function() {
         var overlay = document.getElementById('loadingOverlay');
         var progressFill = document.getElementById('progressFill');
