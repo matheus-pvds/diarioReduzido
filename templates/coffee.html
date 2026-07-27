@@ -243,7 +243,7 @@
 
         <div class="section-title">&#127912; Compre Temas Individuais</div>
         <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
-            Cada tema custa <strong>R$5</strong> e fica seu para sempre — mesmo sem streak. Se você já desbloqueou por streak, não precisa comprar.
+            Cada tema tem um valor progressivo — quanto mais raro, mais caro. O <strong>Modo Escuro</strong> é simbólico (R$1), enquanto <strong>O Coroado</strong> (365 dias) é o mais exclusivo. Se você já desbloqueou por streak, não precisa comprar.
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-bottom:2rem;">
             {% for tid, (tname, _) in STREAK_THEMES|dictsort %}
@@ -253,12 +253,14 @@
                     {% if utid == tid %}{% set unlocked = true %}{% endif %}
                 {% endfor %}
             {% endif %}
+            {% set price = get_theme_price(tid) %}
             <div style="border:1px solid {% if unlocked %}var(--green){% else %}#ddd{% endif %};padding:0.5rem 1rem;border-radius:4px;text-align:center;background:#fff;{% if unlocked %}opacity:0.6{% endif %}">
                 <div style="font-weight:bold;font-size:0.85rem;">{{ tname }}</div>
+                <div style="font-size:0.65rem;color:#999;">{{ tid }} dias</div>
                 {% if unlocked %}
                 <div style="font-size:0.7rem;color:var(--green);">&#10003; Desbloqueado</div>
                 {% else %}
-                <button class="plan-btn" style="padding:0.3rem 0.8rem;font-size:0.75rem;" onclick="openCheckout('theme_{{ tid }}', 'Tema: {{ tname }}', 5)">Comprar R$5</button>
+                <button class="plan-btn" style="padding:0.3rem 0.8rem;font-size:0.75rem;" onclick="openCheckout('theme_{{ tid }}', 'Tema: {{ tname }}', {{ price }})">Comprar R${{ '%.2f'|format(price) }}</button>
                 {% endif %}
             </div>
             {% endfor %}

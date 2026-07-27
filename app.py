@@ -123,8 +123,10 @@ BADGES = {
     'moon': ('Lua', '\U0001f319'),
 }
 
-THEME_PURCHASE_PRICE = 5.00
 BADGE_PRICE = 3.00
+
+def get_theme_price(streak_days):
+    return THEME_PRICES.get(streak_days, 5.00)
 
 def get_purchasable_themes(user):
     if not user:
@@ -427,6 +429,23 @@ STREAK_THEMES = {
     330: ('galaxy', 'Galáxia'),
     360: ('royal', 'Real'),
     365: ('coroado', 'O Coroado'),
+}
+
+THEME_PRICES = {
+    3: 1.00,
+    30: 3.00,
+    60: 5.00,
+    90: 7.00,
+    120: 9.00,
+    150: 12.00,
+    180: 15.00,
+    210: 18.00,
+    240: 22.00,
+    270: 26.00,
+    300: 30.00,
+    330: 35.00,
+    360: 40.00,
+    365: 50.00,
 }
 
 STREAK_BONUS_POINTS = {3: 10, 30: 25, 60: 50, 90: 100, 120: 100, 150: 150,
@@ -988,7 +1007,7 @@ def create_checkout():
         'freeze5': (18.00, '5 Congelamentos de Streak'),
     }
     for tid, (tname, _) in STREAK_THEMES.items():
-        plans_map[f'theme_{tid}'] = (THEME_PURCHASE_PRICE, f'Tema: {tname}')
+        plans_map[f'theme_{tid}'] = (get_theme_price(tid), f'Tema: {tname}')
     for bid, (bname, bemoji) in BADGES.items():
         plans_map[f'badge_{bid}'] = (BADGE_PRICE, f'Distintivo: {bemoji} {bname}')
     if plan not in plans_map or not name or not email or not cpf:
@@ -1240,7 +1259,7 @@ def update_badge():
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
 
-app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes)
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price)
 
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true', port=5000)
