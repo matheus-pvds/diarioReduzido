@@ -208,7 +208,16 @@
         </div>
         {% endif %}
         <footer>&copy; 2026 O Diário Reduzido - Todos os direitos reservados.</footer>
-        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px dashed #ccc; text-align: center;">
+        <div style="margin-top: 0.5rem; text-align: center; font-size: 0.65rem; color: #bbb;">
+            {% if check_interval and check_interval <= 15 %}
+            verificação frequente ativada
+            {% elif is_weekend %}
+            sem verificação automática (fim de semana)
+            {% else %}
+            verificação a cada {{ check_interval or 60 }} min
+            {% endif %}
+        </div>
+        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px dashed #ccc; text-align: center;">
             <p style="font-family: 'Playfair Display', serif; font-size: 1.1rem; margin-bottom: 0.3rem;">Gostou do conteúdo?</p>
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Ajude a manter o projeto com um PIX</p>
             <div style="width: 180px; height: 180px; border: 2px dashed #aaa; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px;">

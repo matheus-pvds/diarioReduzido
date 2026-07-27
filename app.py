@@ -228,6 +228,21 @@ def validate_captcha(answer):
     stored = session.pop('captcha_answer', None)
     return bool(stored and answer and stored.strip() == answer.strip())
 
+def is_weekend():
+    return datetime.now(BRT).weekday() >= 5
+
+def get_check_interval():
+    if is_weekend():
+        return 360
+    post = Post.query.order_by(Post.id.desc()).first()
+    if not post:
+        return 15
+    if not post.content or not post.content.strip():
+        return 15
+    if post.date and (datetime.now(BRT) - post.date) > timedelta(hours=24):
+        return 15
+    return 60
+
 def parse_title(text):
     prefix = "TITULO:"
     for line in text.splitlines():
@@ -312,25 +327,27 @@ def index():
     post = Post.query.order_by(Post.id.desc()).first()
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     now = datetime.now(BRT)
+    interval_min = get_check_interval()
     should_check = True
     if last_check:
         last_time = datetime.fromisoformat(last_check.value)
         if last_time.tzinfo is None:
             last_time = last_time.replace(tzinfo=BRT)
-        should_check = (now - last_time) > timedelta(hours=1)
+        should_check = (now - last_time) > timedelta(minutes=interval_min)
     fav_ids = {f.post_id for f in user.favorites} if user else set()
-    return render_template('index.html', post=post, user=user, should_check=should_check, user_fav_ids=fav_ids)
+    return render_template('index.html', post=post, user=user, should_check=should_check, user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend())
 
 @app.route('/api/should-check')
 def api_should_check():
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     now = datetime.now(BRT)
+    interval_min = get_check_interval()
     if last_check:
         last_time = datetime.fromisoformat(last_check.value)
         if last_time.tzinfo is None:
             last_time = last_time.replace(tzinfo=BRT)
-        return jsonify({'should_check': (now - last_time) > timedelta(hours=1)})
-    return jsonify({'should_check': True})
+        return jsonify({'should_check': (now - last_time) > timedelta(minutes=interval_min), 'interval_min': interval_min})
+    return jsonify({'should_check': True, 'interval_min': interval_min})
 
 @app.route('/api/perform-check')
 def api_perform_check():
@@ -338,12 +355,13 @@ def api_perform_check():
         return jsonify({'status': 'already_checking'})
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     now = datetime.now(BRT)
+    interval_min = get_check_interval()
     if last_check:
         last_time = datetime.fromisoformat(last_check.value)
         if last_time.tzinfo is None:
             last_time = last_time.replace(tzinfo=BRT)
-        if (now - last_time) <= timedelta(hours=1):
-            return jsonify({'status': 'not_needed'})
+        if (now - last_time) <= timedelta(minutes=interval_min):
+            return jsonify({'status': 'not_needed', 'interval_min': interval_min})
     set_checking(True)
     try:
         return jsonify(perform_update_logic())
