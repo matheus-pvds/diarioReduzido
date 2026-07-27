@@ -1,6 +1,7 @@
 import unittest
 import os
 os.environ["GEMINI_API_KEY"] = "dummy-api-key-for-testing"
+os.environ["POSTGRES_URL"] = "sqlite:///:memory:"
 from unittest.mock import patch, MagicMock
 from app import app, db, Post, fetch_daily_diary, perform_update_logic
 from processor import GeminiClient

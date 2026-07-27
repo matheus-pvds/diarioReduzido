@@ -179,9 +179,11 @@
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
                     var raw = document.getElementById('article-text');
-                    if (raw) {
+                    if (raw && raw.textContent.trim()) {
                         marked.setOptions({ breaks: true, gfm: true });
                         document.getElementById('rendered-content').innerHTML = marked.parse(raw.textContent);
+                    } else if (raw) {
+                        document.getElementById('rendered-content').innerHTML = '<p style="color:#888;font-style:italic;">Conteúdo temporariamente indisponível. O resumo será gerado na próxima verificação automática.</p>';
                     }
                 });
             </script>

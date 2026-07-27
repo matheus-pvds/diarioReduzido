@@ -54,18 +54,31 @@ class LoginAttempt(db.Model):
     timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     success = db.Column(db.Boolean, default=False)
 
+COLUMN_RENAMES = {
+    'user': [('password_hash', 'password')],
+    'post': [('body', 'content'), ('text', 'content'), ('summary', 'content'), ('headline', 'title'), ('model_used', 'model')],
+    'favorite': [('post_id_old', 'post_id')],
+}
+
 def migrate_columns():
     from sqlalchemy import inspect
     inspector = inspect(db.engine)
     for table_name, model in [('user', User), ('post', Post), ('favorite', Favorite),
                                ('login_attempt', LoginAttempt), ('app_config', AppConfig)]:
         existing = {c['name'] for c in inspector.get_columns(table_name)}
-        if 'password_hash' in existing and 'password' not in existing:
-            db.session.execute(db.text(f'ALTER TABLE "{table_name}" RENAME COLUMN "password_hash" TO "password"'))
-            existing = {c['name'] for c in inspector.get_columns(table_name)}
-        elif 'password_hash' in existing and 'password' in existing:
-            db.session.execute(db.text(f'ALTER TABLE "{table_name}" DROP COLUMN "password_hash"'))
-            existing = {c['name'] for c in inspector.get_columns(table_name)}
+        for old_name, new_name in COLUMN_RENAMES.get(table_name, []):
+            if old_name in existing and new_name not in existing:
+                try:
+                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{new_name}"'))
+                    existing = {c['name'] for c in inspector.get_columns(table_name)}
+                except Exception:
+                    pass
+            elif old_name in existing and new_name in existing:
+                try:
+                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" DROP COLUMN "{old_name}"'))
+                    existing = {c['name'] for c in inspector.get_columns(table_name)}
+                except Exception:
+                    pass
         for col in model.__table__.columns:
             if col.name not in existing:
                 col_type = col.type.compile(db.engine.dialect)
@@ -75,7 +88,10 @@ def migrate_columns():
                         default = ''
                     else:
                         default = f" DEFAULT {col.default.arg!r}" if not isinstance(col.default.arg, (list, dict)) else ''
-                db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}{default}'))
+                try:
+                    db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}{default}'))
+                except Exception:
+                    pass
     db.session.commit()
 
 with app.app_context():
@@ -155,7 +171,12 @@ def record_attempt(ip, success):
     db.session.add(LoginAttempt(ip_address=ip, success=success))
     db.session.commit()
 
+RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '')
+RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '')
+
 def generate_captcha():
+    if RECAPTCHA_SITE_KEY:
+        return None
     a, b = random.randint(1, 12), random.randint(1, 12)
     op = random.choice(['+', '-'])
     if op == '-':
@@ -164,6 +185,14 @@ def generate_captcha():
     return f"{a} {op} {b}"
 
 def validate_captcha(answer):
+    if RECAPTCHA_SECRET_KEY:
+        token = request.form.get('g-recaptcha-response', '')
+        if not token:
+            return False
+        resp = requests.post('https://www.google.com/recaptcha/api/siteverify', data={
+            'secret': RECAPTCHA_SECRET_KEY, 'response': token
+        }, timeout=10)
+        return resp.json().get('success', False)
     stored = session.pop('captcha_answer', None)
     return bool(stored and answer and stored.strip() == answer.strip())
 
@@ -312,46 +341,46 @@ def login():
     if request.method == 'POST':
         ip = get_client_ip()
         if not check_rate_limit(ip):
-            return render_template('login.html', error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha())
+            return render_template('login.html', error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_csrf():
-            return render_template('login.html', error='Token inválido. Recarregue a página.', captcha_question=generate_captcha())
+            return render_template('login.html', error='Token inválido. Recarregue a página.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_captcha(request.form.get('captcha')):
             record_attempt(ip, False)
-            return render_template('login.html', error='Captcha incorreto.', captcha_question=generate_captcha())
+            return render_template('login.html', error='Captcha incorreto.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         user = User.query.filter_by(username=request.form.get('username', '').strip()).first()
         if user and check_password_hash(user.password, request.form.get('password', '')):
             session['user_id'] = user.id
             record_attempt(ip, True)
             return redirect(request.args.get('next') or url_for('index'))
         record_attempt(ip, False)
-        return render_template('login.html', error='Credenciais inválidas.', captcha_question=generate_captcha())
-    return render_template('login.html', captcha_question=generate_captcha())
+        return render_template('login.html', error='Credenciais inválidas.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+    return render_template('login.html', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         ip = get_client_ip()
         if not check_rate_limit(ip):
-            return render_template('login.html', registering=True, error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha())
+            return render_template('login.html', registering=True, error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_csrf():
-            return render_template('login.html', registering=True, error='Token inválido. Recarregue a página.', captcha_question=generate_captcha())
+            return render_template('login.html', registering=True, error='Token inválido. Recarregue a página.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_captcha(request.form.get('captcha')):
             record_attempt(ip, False)
-            return render_template('login.html', registering=True, error='Captcha incorreto.', captcha_question=generate_captcha())
+            return render_template('login.html', registering=True, error='Captcha incorreto.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         if len(username) < 3 or len(username) > 80:
-            return render_template('login.html', registering=True, error='Usuário deve ter 3-80 caracteres.', captcha_question=generate_captcha())
+            return render_template('login.html', registering=True, error='Usuário deve ter 3-80 caracteres.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if len(password) < 4:
-            return render_template('login.html', registering=True, error='Senha deve ter no mínimo 4 caracteres.', captcha_question=generate_captcha())
+            return render_template('login.html', registering=True, error='Senha deve ter no mínimo 4 caracteres.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if User.query.filter_by(username=username).first():
-            return render_template('login.html', registering=True, error='Usuário já existe.', captcha_question=generate_captcha())
+            return render_template('login.html', registering=True, error='Usuário já existe.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         db.session.add(User(username=username, password=generate_password_hash(password)))
         db.session.commit()
         session['user_id'] = User.query.filter_by(username=username).first().id
         record_attempt(ip, True)
         return redirect(url_for('index'))
-    return render_template('login.html', registering=True, captcha_question=generate_captcha())
+    return render_template('login.html', registering=True, captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
 @app.route('/logout')
 def logout():

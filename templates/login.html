@@ -45,13 +45,22 @@
                 <label for="password">Senha</label>
                 <input type="password" id="password" name="password" required minlength="4" autocomplete="current-password">
             </div>
+            {% if recaptcha_site_key %}
+            <div class="form-group" style="display: flex; justify-content: center;">
+                <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
+            </div>
+            {% else %}
             <div class="form-group">
                 <label for="captcha">Quanto é {{ captcha_question }}?</label>
                 <input type="text" id="captcha" name="captcha" required autocomplete="off" style="width: 100px; text-align: center;">
             </div>
+            {% endif %}
             <button type="submit">{{ 'Criar' if registering else 'Entrar' }}</button>
         </form>
         <a href="/" class="back-link">Voltar ao início</a>
     </div>
+    {% if recaptcha_site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    {% endif %}
 </body>
 </html>
