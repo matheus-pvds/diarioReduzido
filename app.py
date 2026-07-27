@@ -630,7 +630,7 @@ def create_checkout():
     plan = request.form.get('plan', '')
     billing_type = request.form.get('billing_type', 'card')
     plans_map = {
-        '1mes': (120.00, '1 Mês - Diário Reduzido'),
+        '1mes': (30.00, '1 Mês - Diário Reduzido'),
         '3meses': (60.00, '3 Meses - Diário Reduzido'),
         '6meses': (60.00, '6 Meses - Diário Reduzido'),
         '12meses': (108.00, 'Anual - Diário Reduzido'),
