@@ -4,10 +4,11 @@ from processor import GeminiClient
 from asaas import create_customer, create_payment, process_webhook
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-import json, os, requests, bs4, secrets, random
+import json, os, requests, bs4, secrets, random, smtplib
 from datetime import datetime, timedelta, timezone
 import re
 from urllib.parse import urljoin
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', os.urandom(24).hex())
@@ -19,6 +20,31 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('VERCEL', 'false').lower() == 'true'
 db = SQLAlchemy(app)
+
+# --- SMTP config ---
+SMTP_HOST = os.getenv('SMTP_HOST', '')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_USER = os.getenv('SMTP_USER', '')
+SMTP_PASS = os.getenv('SMTP_PASS', '')
+SMTP_FROM = os.getenv('SMTP_FROM', '')
+
+def send_email(to, subject, body):
+    if not SMTP_HOST:
+        print(f'SMTP não configurado. Email não enviado para {to}: {subject}')
+        return False
+    try:
+        msg = MIMEText(body, 'plain', 'utf-8')
+        msg['Subject'] = subject
+        msg['From'] = SMTP_FROM
+        msg['To'] = to
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f'Erro ao enviar email: {e}')
+        return False
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,9 +63,14 @@ class AppConfig(db.Model):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(200), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     is_paid = db.Column(db.Boolean, default=False)
     requests_made = db.Column(db.Integer, default=0)
+    email_verified = db.Column(db.Boolean, default=False)
+    verification_token = db.Column(db.String(200))
+    reset_token = db.Column(db.String(200))
+    reset_token_expires = db.Column(db.DateTime(timezone=True))
     favorites = db.relationship('Favorite', backref='user', lazy=True)
 
 class Favorite(db.Model):
@@ -99,7 +130,7 @@ with app.app_context():
     migrate_columns()
     admin_pass = os.getenv('ADMIN_PASSWORD', 'admin')
     if not User.query.filter_by(username='admin').first():
-        db.session.add(User(username='admin', password=generate_password_hash(admin_pass)))
+        db.session.add(User(username='admin', email=os.getenv('ADMIN_EMAIL', 'admin@diario.app'), password=generate_password_hash(admin_pass), email_verified=True))
     if not AppConfig.query.filter_by(key='last_checked_timestamp').first():
         db.session.add(AppConfig(key='last_checked_timestamp', value=datetime(1970, 1, 1, tzinfo=BRT).isoformat()))
     if not AppConfig.query.filter_by(key='is_checking').first():
@@ -111,7 +142,7 @@ def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'"
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com https://www.google.com https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-src 'self' https://www.google.com"
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
     return response
@@ -368,16 +399,30 @@ def register():
             record_attempt(ip, False)
             return render_template('login.html', registering=True, error='Captcha incorreto.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
         if len(username) < 3 or len(username) > 80:
             return render_template('login.html', registering=True, error='Usuário deve ter 3-80 caracteres.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        if not email or '@' not in email:
+            return render_template('login.html', registering=True, error='E-mail inválido.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if len(password) < 4:
             return render_template('login.html', registering=True, error='Senha deve ter no mínimo 4 caracteres.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        if password != confirm:
+            return render_template('login.html', registering=True, error='Senhas não conferem.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if User.query.filter_by(username=username).first():
             return render_template('login.html', registering=True, error='Usuário já existe.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
-        db.session.add(User(username=username, password=generate_password_hash(password)))
+        if User.query.filter_by(email=email).first():
+            return render_template('login.html', registering=True, error='E-mail já cadastrado.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        token = secrets.token_urlsafe(48)
+        user = User(username=username, email=email, password=generate_password_hash(password), verification_token=token)
+        db.session.add(user)
         db.session.commit()
-        session['user_id'] = User.query.filter_by(username=username).first().id
+        base_url = request.host_url.rstrip('/')
+        verify_link = f'{base_url}/verify-email/{token}'
+        send_email(email, 'Confirme seu e-mail - Diário Reduzido',
+            f'Olá {username},\n\nConfirme seu e-mail clicando no link abaixo:\n{verify_link}\n\nSe não foi você que criou esta conta, ignore esta mensagem.')
+        session['user_id'] = user.id
         record_attempt(ip, True)
         return redirect(url_for('index'))
     return render_template('login.html', registering=True, captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
@@ -386,6 +431,55 @@ def register():
 def logout():
     session.pop('user_id', None)
     return redirect(url_for('index'))
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    user = User.query.filter_by(verification_token=token).first()
+    if not user:
+        return render_template('login.html', error='Link inválido ou expirado.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+    user.email_verified = True
+    user.verification_token = None
+    db.session.commit()
+    return render_template('login.html', error='E-mail confirmado com sucesso!', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+
+@app.route('/forgot', methods=['GET', 'POST'])
+def forgot():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        if not email or '@' not in email:
+            return render_template('forgot.html', error='E-mail inválido.', recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = secrets.token_urlsafe(48)
+            user.reset_token = token
+            user.reset_token_expires = datetime.now(BRT) + timedelta(hours=1)
+            db.session.commit()
+            base_url = request.host_url.rstrip('/')
+            reset_link = f'{base_url}/reset/{token}'
+            send_email(email, 'Redefinir senha - Diário Reduzido',
+                f'Olá {user.username},\n\nRedefina sua senha clicando no link abaixo:\n{reset_link}\n\nO link expira em 1 hora.\n\nSe não foi você, ignore esta mensagem.')
+        return render_template('login.html', error='Se o e-mail existir, você receberá um link de redefinição.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+    return render_template('forgot.html', recaptcha_site_key=RECAPTCHA_SITE_KEY)
+
+@app.route('/reset/<token>', methods=['GET', 'POST'])
+def reset(token):
+    user = User.query.filter_by(reset_token=token).first()
+    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.now(BRT):
+        return render_template('login.html', error='Link inválido ou expirado. Solicite um novo.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+        if len(password) < 4:
+            return render_template('reset.html', token=token, error='Senha deve ter no mínimo 4 caracteres.', recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        if password != confirm:
+            return render_template('reset.html', token=token, error='Senhas não conferem.', recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        user.password = generate_password_hash(password)
+        user.reset_token = None
+        user.reset_token_expires = None
+        db.session.commit()
+        session['user_id'] = user.id
+        return redirect(url_for('index'))
+    return render_template('reset.html', token=token, recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
 @app.route('/archive')
 @login_required
