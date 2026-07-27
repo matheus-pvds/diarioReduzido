@@ -287,7 +287,7 @@
                     {% if utid == tid %}{% set unlocked = true %}{% endif %}
                 {% endfor %}
             {% endif %}
-            {% set price = get_theme_price(tid) %}
+            {% set price = get_theme_price(tid, user.streak_count if user else 0) %}
             <div style="border:1px solid {% if unlocked %}var(--green){% else %}#ddd{% endif %};padding:0.5rem 1rem;border-radius:4px;text-align:center;background:#fff;{% if unlocked %}opacity:0.6{% endif %}">
                 <div style="font-weight:bold;font-size:0.85rem;">{{ tname }}</div>
                 <div style="font-size:0.65rem;color:#999;">{{ tid }} dias</div>

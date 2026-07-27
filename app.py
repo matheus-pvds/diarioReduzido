@@ -169,8 +169,15 @@ COMBOS = {
     },
 }
 
-def get_theme_price(streak_days):
-    return THEME_PRICES.get(streak_days, 5.00)
+def get_theme_price(req_streak, user_streak=0):
+    base = THEME_PRICES.get(req_streak, 5.00)
+    if user_streak >= req_streak:
+        return 0.0
+    if user_streak <= 0:
+        return base
+    progress = min(user_streak / req_streak, 0.99)
+    discounted = base * (1 - progress)
+    return max(round(discounted, 2), 5.0)
 
 STREAK_FONTS = {
     7: ('merriweather', 'Merriweather', "'Merriweather', serif"),
@@ -1176,7 +1183,7 @@ def create_checkout():
         'freeze5': (90.00, '5 Congelamentos de Streak'),
     }
     for tid, (tname, _) in STREAK_THEMES.items():
-        plans_map[f'theme_{tid}'] = (get_theme_price(tid), f'Tema: {tname}')
+        plans_map[f'theme_{tid}'] = (get_theme_price(tid, user.streak_count or 0), f'Tema: {tname}')
     for bid, (bname, bemoji) in BADGES.items():
         plans_map[f'badge_{bid}'] = (BADGE_PRICE, f'Distintivo: {bemoji} {bname}')
     for ckey, cinfo in COMBOS.items():
