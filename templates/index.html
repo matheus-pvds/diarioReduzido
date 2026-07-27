@@ -204,7 +204,39 @@
         </div>
         {% endif %}
         <footer>&copy; 2026 O Diário Reduzido - Todos os direitos reservados.</footer>
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px dashed #ccc; text-align: center;">
+            <p style="font-family: 'Playfair Display', serif; font-size: 1.1rem; margin-bottom: 0.3rem;">Gostou do conteúdo?</p>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">Ajude a manter o projeto com um PIX</p>
+            <div style="width: 180px; height: 180px; border: 2px dashed #aaa; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px;">
+                <div style="text-align: center; color: #666;">
+                    <div style="font-size: 3.5rem; line-height: 1;">&#9749;</div>
+                    <div style="font-size: 0.65rem; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 1px;">PIX</div>
+                </div>
+            </div>
+            <div style="font-family: monospace; font-size: 0.7rem; word-break: break-all; background: #f0ede5; padding: 0.5rem; max-width: 320px; margin: 0 auto; border: 1px solid #ddd; color: #555;" id="pixKey">sua-chave-pix@exemplo.com</div>
+            <button onclick="copyDonationPix()" style="margin-top: 0.5rem; background: none; border: 1px solid #aaa; padding: 0.3rem 1rem; font-family: 'Crimson Pro', serif; font-size: 0.8rem; cursor: pointer; color: #555;">Copiar chave</button>
+            <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">Qualquer valor &mdash; chave PIX aleatória</p>
+        </div>
     </div>
+    <script>
+    function copyDonationPix() {
+        var el = document.getElementById('pixKey');
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(el.textContent).then(function() {
+                var btn = el.nextElementSibling;
+                var orig = btn.textContent;
+                btn.textContent = 'Copiado!';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            });
+        } else {
+            var range = document.createRange();
+            range.selectNodeContents(el);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    }
+    </script>
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
