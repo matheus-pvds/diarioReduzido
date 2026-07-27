@@ -106,6 +106,7 @@ def migrate_columns():
                     pass
             elif old_name in existing and new_name in existing:
                 try:
+                    db.session.execute(db.text(f'UPDATE "{table_name}" SET "{new_name}" = "{old_name}" WHERE ("{new_name}" IS NULL OR "{new_name}" = \'\')'))
                     db.session.execute(db.text(f'ALTER TABLE "{table_name}" DROP COLUMN "{old_name}"'))
                     existing = {c['name'] for c in inspector.get_columns(table_name)}
                 except Exception:
@@ -635,6 +636,34 @@ def asaas_webhook():
             db.session.commit()
             print(f'Pagamento confirmado para usuário {user_id}')
     return jsonify({'status': 'ok'})
+
+@app.route('/api/reprocess-latest', methods=['POST'])
+@login_required
+def reprocess_latest():
+    user = get_current_user()
+    if user.username != 'admin' and not user.is_paid:
+        return jsonify({'error': 'Apenas admin ou usuários pagos podem reprocessar.'}), 403
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    post = Post.query.filter(Post.content.is_(None)).order_by(Post.id.desc()).first()
+    if not post or not post.pdf_link:
+        post = Post.query.order_by(Post.id.desc()).first()
+        if not post:
+            return jsonify({'error': 'Nenhum post encontrado.'}), 400
+    try:
+        pdf_content = requests.get(post.pdf_link, timeout=60).content
+        raw_text, model_name = GeminiClient().process_pdf(pdf_content)
+        title, content = parse_title(raw_text)
+        post.title = title
+        post.content = content
+        post.model = model_name
+        db.session.commit()
+        print(f'Post {post.id} reprocessado com sucesso')
+        return jsonify({'status': 'success', 'title': title})
+    except Exception as e:
+        db.session.rollback()
+        print(f'Erro ao reprocessar: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/pagamento/sucesso')
 def pagamento_sucesso():
