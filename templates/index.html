@@ -7,11 +7,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    {% if not (user and user.is_paid) %}
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0000000000000000" crossorigin="anonymous"></script>
+    {% endif %}
     <style>
         :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-heavy: #333; --border-light: #ccc; --accent-red: #a00; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
-        .newspaper-container { max-width: 900px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 100vh; border: 1px solid #ddd; }
+        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; }
+        .ad-layout { display: flex; justify-content: center; align-items: flex-start; gap: 0; min-height: 100vh; }
+        .ad-slot { width: 160px; min-height: 600px; flex-shrink: 0; position: sticky; top: 0; }
+        .ad-slot-inner { width: 100%; min-height: 600px; display: flex; align-items: center; justify-content: center; }
+        .ad-slot-inner::after { content: ''; color: #ccc; font-size: 0.7rem; }
+        .ad-slot-top, .ad-slot-bottom { display: none; width: 100%; min-height: 90px; background: rgba(0,0,0,0.02); justify-content: center; align-items: center; }
+        .newspaper-container { max-width: 900px; width: 100%; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 100vh; border: 1px solid #ddd; }
         header { text-align: center; border-bottom: 4px double var(--border-heavy); padding-bottom: 1rem; margin-bottom: 2rem; }
         .masthead-top { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-heavy); padding: 0.5rem 0; font-family: 'Playfair Display', serif; font-size: 0.9rem; text-transform: uppercase; font-weight: 700; }
         h1.masthead-title { font-family: 'Playfair Display', serif; font-size: 4.5rem; font-weight: 900; letter-spacing: -2px; margin: 1rem 0; line-height: 1; text-transform: capitalize; }
@@ -25,6 +33,7 @@
         .no-content { text-align: center; padding: 5rem 0; font-style: italic; color: #777; }
         footer { margin-top: 4rem; border-top: 1px solid var(--border-heavy); padding-top: 1rem; text-align: center; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #666; }
         .widget { font-size: 0.7rem; font-weight: bold; }
+        @media (max-width: 1024px) { .ad-slot { display: none; } .ad-slot-top, .ad-slot-bottom { display: flex; } .ad-layout { flex-direction: column; } }
         @media (max-width: 768px) { .article-content { column-count: 1; } h1.masthead-title { font-size: 3rem; } .newspaper-container { padding: 1.5rem; } }
 
         .fav-btn { background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #ccc; padding: 0.2rem; transition: color 0.2s; }
@@ -116,7 +125,16 @@
         </div>
     </div>
 
-    <div class="newspaper-container">
+    {% if not (user and user.is_paid) %}
+    <div class="ad-slot-top" id="adTop">
+        <div style="width:100%;max-width:728px;min-height:90px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#ccc;background:rgba(0,0,0,0.02);">Publicidade</div>
+    </div>
+    {% endif %}
+    <div class="ad-layout">
+        {% if not (user and user.is_paid) %}
+        <div class="ad-slot" id="adLeft"><div class="ad-slot-inner" style="font-size:0.7rem;color:#ccc;">&nbsp;</div></div>
+        {% endif %}
+        <div class="newspaper-container">
         <header>
             <div class="masthead-top">
                 <div class="widget">
@@ -244,7 +262,15 @@
             </div>
             {% endif %}
         </div>
+        {% if not (user and user.is_paid) %}
+        <div class="ad-slot" id="adRight"><div class="ad-slot-inner" style="font-size:0.7rem;color:#ccc;">&nbsp;</div></div>
+        {% endif %}
     </div>
+    {% if not (user and user.is_paid) %}
+    <div class="ad-slot-bottom" id="adBottom">
+        <div style="width:100%;max-width:728px;min-height:90px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#ccc;background:rgba(0,0,0,0.02);">Publicidade</div>
+    </div>
+    {% endif %}
     <script>
     function copyDonationPix() {
         var el = document.getElementById('pixKey');
