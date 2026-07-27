@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, timedelta
 
 API_KEY = os.getenv('ASAAS_API_KEY', '')
-BASE_URL = os.getenv('ASAAS_BASE_URL', 'https://sandbox.asaas.com/api/v3')
+BASE_URL = os.getenv('ASAAS_BASE_URL', 'https://api.asaas.com/v3')
 
 HEADERS = {
     'access_token': API_KEY,

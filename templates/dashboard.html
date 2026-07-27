@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather&family=Lora&family=Spectral&family=Vollkorn&family=Bitter&family=Arvo&family=Roboto+Slab&family=Zilla+Slab&family=Source+Serif+4&family=EB+Garamond&family=Cormorant+Garamond&family=Libre+Baskerville&family=Cardo&family=Tinos&family=PT+Serif&family=Karla&family=Inter&family=Nunito&family=Rubik&family=Work+Sans&family=Open+Sans&family=Lato&family=Montserrat&family=Raleway&family=Ubuntu&family=Fira+Sans&family=DM+Sans&family=Manrope&family=Outfit&family=Sora&family=Archivo&family=Space+Grotesk&family=Josefin+Sans&family=Barlow&family=Mulish&family=Quicksand&family=Asap&family=Maven+Pro&family=Overpass&family=Epilogue&family=Urbanist&family=Exo+2&family=Oxanium&family=Rajdhani&family=Prompt&family=Figtree&family=Plus+Jakarta+Sans&family=Chivo&family=Libre+Franklin&family=Source+Sans+3&family=DM+Serif+Display&family=Unbounded&display=swap" rel="stylesheet">
     <style>
         :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-light: #ccc; --accent-red: #a00; --gold: #c8962e; --green: #2e7d32; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -276,6 +277,23 @@
                 {% endif %}
             </div>
             {% endfor %}
+        </div>
+        {% endif %}
+
+        {% set unlocked_fonts = get_unlocked_fonts(user) %}
+        {% if unlocked_fonts and unlocked_fonts|length > 1 %}
+        <div class="card">
+            <h2>&#128221; Fontes para Comentários</h2>
+            <p style="font-size:0.85rem; color:#888; margin-bottom:1rem;">Escolha uma fonte para seus comentários. Desbloqueie novas a cada 7 dias de streak.</p>
+            <form method="post" action="/update-font" id="fontForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                {% for fid, fname, fcss in unlocked_fonts %}
+                <div class="title-option {% if (user.font or 'default') == fid %}active{% endif %}" style="font-family:{{ fcss }};" onclick="this.querySelector('input').click(); this.closest('form').submit();">
+                    <input type="radio" name="font" value="{{ fid }}" {% if (user.font or 'default') == fid %}checked{% endif %} onchange="this.closest('form').submit();">
+                    <label>{{ fname }}</label>
+                </div>
+                {% endfor %}
+            </form>
         </div>
         {% endif %}
 

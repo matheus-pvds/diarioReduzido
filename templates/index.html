@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@200..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather&family=Lora&family=Spectral&family=Vollkorn&family=Bitter&family=Arvo&family=Roboto+Slab&family=Zilla+Slab&family=Source+Serif+4&family=EB+Garamond&family=Cormorant+Garamond&family=Libre+Baskerville&family=Cardo&family=Tinos&family=PT+Serif&family=Karla&family=Inter&family=Nunito&family=Rubik&family=Work+Sans&family=Open+Sans&family=Lato&family=Montserrat&family=Raleway&family=Ubuntu&family=Fira+Sans&family=DM+Sans&family=Manrope&family=Outfit&family=Sora&family=Archivo&family=Space+Grotesk&family=Josefin+Sans&family=Barlow&family=Mulish&family=Quicksand&family=Asap&family=Maven+Pro&family=Overpass&family=Epilogue&family=Urbanist&family=Exo+2&family=Oxanium&family=Rajdhani&family=Prompt&family=Figtree&family=Plus+Jakarta+Sans&family=Chivo&family=Libre+Franklin&family=Source+Sans+3&family=DM+Serif+Display&family=Unbounded&display=swap" rel="stylesheet">
     {% if not (user and user.is_paid) %}
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0000000000000000" crossorigin="anonymous"></script>
     {% endif %}
@@ -277,6 +278,7 @@
                             </select>
                         </form>
                         {% endif %}
+                        <a href="/dashboard" style="color: var(--ink-color); text-decoration: none; margin-left: 0.5rem; font-size:0.85rem;">&#128100; Painel</a>
                         <a href="/logout" style="color: var(--accent-red); text-decoration: none; margin-left: 0.5rem;">Sair</a>
                     {% else %}
                         <a href="/register" style="color: var(--accent-red); text-decoration: none;">Criar conta</a>
@@ -337,7 +339,10 @@
                     </span>
                     {% endif %}
                     <span>
-                        <a href="/share/{{ post.id }}" class="share-btn" target="_blank">&#128279; Compartilhar</a>
+                        <a href="/share/{{ post.id }}" class="share-btn" target="_blank" title="Link para compartilhar">&#128279;</a>
+                        <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn" target="_blank" title="Compartilhar no X/Twitter">&#120143;</a>
+                        <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn" target="_blank" title="Compartilhar no Facebook">f</a>
+                        <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url_root }}share/{{ post.id }}" class="share-btn" target="_blank" title="Compartilhar no WhatsApp">&#128172;</a>
                     </span>
                 </div>
             </div>
@@ -353,7 +358,7 @@
             </div>
             {% if post.commentary and post.commentary.strip() %}
             <div style="margin-top: 2rem; padding: 1.2rem; background: var(--comment-bg); border-left: 4px solid var(--accent-red); font-style: italic;" class="{% if user and user.username == 'admin' %}admin-commentary{% endif %}">
-                <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:0.5rem;">&#9998; Notas do Editor</h3>
+                <h3 style="font-family:var(--font-heading); font-size:1.1rem; margin-bottom:0.5rem;">&#129302; Conclusões da IA</h3>
                 {{ post.commentary|safe }}
             </div>
             {% endif %}
@@ -377,21 +382,33 @@
                             <strong>{{ c.author.username }}</strong>
                             {% if c.author.username == 'admin' %}<span class="admin-badge">&#128295; Editor</span>{% elif c.author.badge == 'pioneer' %}<span class="badge-title" style="background:linear-gradient(135deg,var(--gold),#e8a317);color:#fff;">&#127942; Pioneiro</span>{% elif c.author.badge and c.author.badge in BADGES %}<span class="badge-title">{{ BADGES[c.author.badge][1] }}</span>{% endif %}
                             {% if c_title %}<span class="badge-title">{{ c_title[1] }} {{ c_title[0] }}</span>{% endif %}
+                            {% if c.author.font and c.author.font != 'default' %}<span style="font-size:0.65rem;color:#999;font-style:italic;">{{ get_font_name(c.author.font) }}</span>{% endif %}
                             &middot; {{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '' }}
                         </div>
-                        <div class="comment-body">{{ c.content }}</div>
+                        <div class="comment-body" {% if c.author.font and c.author.font != 'default' %}style="font-family:{{ get_font_css(c.author.font) }}"{% endif %}>{{ c.content }}</div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <p style="color:#888; font-style:italic; margin-bottom:1rem;">Nenhum comentário ainda. Seja o primeiro!</p>
                 {% endif %}
-                {% if user %}
-                <form method="post" action="/comment/{{ post.id }}" class="comment-form">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <textarea name="content" placeholder="Deixe seu comentário..." maxlength="1000" required></textarea>
-                    <button type="submit">Comentar</button>
-                </form>
-                {% else %}
+                    {% if user %}
+                    <div class="comment-form">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;font-size:0.85rem;flex-wrap:wrap;">
+                            {% set u_title = get_user_title(user) %}
+                            <strong>{{ user.username }}</strong>
+                            {% if user.username == 'admin' %}<span class="admin-badge">&#128295; Editor</span>{% elif user.badge == 'pioneer' %}<span class="badge-title" style="background:linear-gradient(135deg,var(--gold),#e8a317);color:#fff;">&#127942; Pioneiro</span>{% elif user.badge and user.badge in BADGES %}<span class="badge-title">{{ BADGES[user.badge][1] }}</span>{% endif %}
+                            {% if u_title %}<span class="badge-title">{{ u_title[1] }} {{ u_title[0] }}</span>{% endif %}
+                            {% if user.font and user.font != 'default' %}
+                            <span style="font-size:0.7rem;color:#888;font-style:italic;">fonte: {{ get_font_name(user.font) }}</span>
+                            {% endif %}
+                        </div>
+                        <form method="post" action="/comment/{{ post.id }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <textarea name="content" placeholder="Deixe seu comentário..." maxlength="1000" required></textarea>
+                            <button type="submit">Comentar</button>
+                        </form>
+                    </div>
+                    {% else %}
                 <p style="font-size:0.9rem; color:#888; margin-top:1rem;">
                     <a href="/login" style="color: var(--accent-red);">Faça login</a> para comentar.
                 </p>

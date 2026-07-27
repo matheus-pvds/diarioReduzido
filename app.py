@@ -9,6 +9,10 @@ from datetime import datetime, timedelta, timezone
 import re, markdown
 from urllib.parse import urljoin
 from email.mime.text import MIMEText
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+import time, traceback
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', os.urandom(24).hex())
@@ -109,7 +113,7 @@ class Comment(db.Model):
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
 
 PLAN_DAYS = { '1dia': 1, '1mes': 30, '3meses': 90, '6meses': 180, '12meses': 365 }
-PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 20.00, '6meses': 60.00, '12meses': 108.00 }
+PLAN_VALUES = { '1dia': 50.00, '1mes': 150.00, '3meses': 100.00, '6meses': 300.00, '12meses': 540.00 }
 FREE_MONTH_POINTS = 360
 
 BADGES = {
@@ -123,10 +127,108 @@ BADGES = {
     'moon': ('Lua', '\U0001f319'),
 }
 
-BADGE_PRICE = 3.00
+BADGE_PRICE = 15.00
 
 def get_theme_price(streak_days):
     return THEME_PRICES.get(streak_days, 5.00)
+
+STREAK_FONTS = {
+    7: ('merriweather', 'Merriweather', "'Merriweather', serif"),
+    14: ('lora', 'Lora', "'Lora', serif"),
+    21: ('spectral', 'Spectral', "'Spectral', serif"),
+    28: ('vollkorn', 'Vollkorn', "'Vollkorn', serif"),
+    35: ('bitter', 'Bitter', "'Bitter', serif"),
+    42: ('arvo', 'Arvo', "'Arvo', serif"),
+    49: ('roboto-slab', 'Roboto Slab', "'Roboto Slab', serif"),
+    56: ('zilla-slab', 'Zilla Slab', "'Zilla Slab', serif"),
+    63: ('source-serif', 'Source Serif 4', "'Source Serif 4', serif"),
+    70: ('eb-garamond', 'EB Garamond', "'EB Garamond', serif"),
+    77: ('cormorant', 'Cormorant Garamond', "'Cormorant Garamond', serif"),
+    84: ('libre-baskerville', 'Libre Baskerville', "'Libre Baskerville', serif"),
+    91: ('cardo', 'Cardo', "'Cardo', serif"),
+    98: ('tinos', 'Tinos', "'Tinos', serif"),
+    105: ('pt-serif', 'PT Serif', "'PT Serif', serif"),
+    112: ('karla', 'Karla', "'Karla', sans-serif"),
+    119: ('inter', 'Inter', "'Inter', sans-serif"),
+    126: ('nunito', 'Nunito', "'Nunito', sans-serif"),
+    133: ('rubik', 'Rubik', "'Rubik', sans-serif"),
+    140: ('worksans', 'Work Sans', "'Work Sans', sans-serif"),
+    147: ('opensans', 'Open Sans', "'Open Sans', sans-serif"),
+    154: ('lato', 'Lato', "'Lato', sans-serif"),
+    161: ('montserrat', 'Montserrat', "'Montserrat', sans-serif"),
+    168: ('raleway', 'Raleway', "'Raleway', sans-serif"),
+    175: ('ubuntu', 'Ubuntu', "'Ubuntu', sans-serif"),
+    182: ('firasans', 'Fira Sans', "'Fira Sans', sans-serif"),
+    189: ('dmsans', 'DM Sans', "'DM Sans', sans-serif"),
+    196: ('manrope', 'Manrope', "'Manrope', sans-serif"),
+    203: ('outfit', 'Outfit', "'Outfit', sans-serif"),
+    210: ('sora', 'Sora', "'Sora', sans-serif"),
+    217: ('archivo', 'Archivo', "'Archivo', sans-serif"),
+    224: ('space-grotesk', 'Space Grotesk', "'Space Grotesk', sans-serif"),
+    231: ('josefin-sans', 'Josefin Sans', "'Josefin Sans', sans-serif"),
+    238: ('barlow', 'Barlow', "'Barlow', sans-serif"),
+    245: ('mulish', 'Mulish', "'Mulish', sans-serif"),
+    252: ('quicksand', 'Quicksand', "'Quicksand', sans-serif"),
+    259: ('asap', 'Asap', "'Asap', sans-serif"),
+    266: ('maven-pro', 'Maven Pro', "'Maven Pro', sans-serif"),
+    273: ('overpass', 'Overpass', "'Overpass', sans-serif"),
+    280: ('epilogue', 'Epilogue', "'Epilogue', sans-serif"),
+    287: ('urbanist', 'Urbanist', "'Urbanist', sans-serif"),
+    294: ('exo-2', 'Exo 2', "'Exo 2', sans-serif"),
+    301: ('oxanium', 'Oxanium', "'Oxanium', sans-serif"),
+    308: ('rajdhani', 'Rajdhani', "'Rajdhani', sans-serif"),
+    315: ('prompt', 'Prompt', "'Prompt', sans-serif"),
+    322: ('figtree', 'Figtree', "'Figtree', sans-serif"),
+    329: ('plus-jakarta', 'Plus Jakarta Sans', "'Plus Jakarta Sans', sans-serif"),
+    336: ('chivo', 'Chivo', "'Chivo', sans-serif"),
+    343: ('libre-franklin', 'Libre Franklin', "'Libre Franklin', sans-serif"),
+    350: ('sourcesans', 'Source Sans 3', "'Source Sans 3', sans-serif"),
+    357: ('dm-serif', 'DM Serif Display', "'DM Serif Display', serif"),
+    364: ('playfair-display', 'Playfair Display', "'Playfair Display', serif"),
+    365: ('crimson-pro', 'Crimson Pro', "'Crimson Pro', serif"),
+}
+
+ADMIN_FONT = ('unbounded', 'Unbounded', "'Unbounded', sans-serif")
+
+def get_font_css(font_id):
+    if font_id == 'admin':
+        return ADMIN_FONT[2]
+    for days, (fid, fname, fcss) in STREAK_FONTS.items():
+        if fid == font_id:
+            return fcss
+    return "'Crimson Pro', serif"
+
+def get_font_name(font_id):
+    if not font_id or font_id == 'default':
+        return 'Padrão'
+    if font_id == 'admin':
+        return ADMIN_FONT[1]
+    for days, (fid, fname, fcss) in STREAK_FONTS.items():
+        if fid == font_id:
+            return fname
+    return 'Padrão'
+
+def get_unlocked_fonts(user):
+    if not user:
+        return [('default', 'Padrão', "'Crimson Pro', serif")]
+    if user.username == 'admin':
+        result = [('admin', ADMIN_FONT[1], ADMIN_FONT[2])]
+        result.extend((fid, fname, fcss) for _, (fid, fname, fcss) in sorted(STREAK_FONTS.items()))
+        return result
+    streak = user.streak_count or 0
+    result = [('default', 'Padrão', "'Crimson Pro', serif")]
+    for days, (fid, fname, fcss) in sorted(STREAK_FONTS.items()):
+        if streak >= days:
+            result.append((fid, fname, fcss))
+    return result
+
+def get_all_font_urls():
+    names = set()
+    for _, (fid, fname, _) in STREAK_FONTS.items():
+        names.add(fname)
+    names.add(ADMIN_FONT[1])
+    families = [n.replace(' ', '+') for n in sorted(names)]
+    return f"https://fonts.googleapis.com/css2?{'&'.join('family=' + f for f in families)}&display=swap"
 
 def get_purchasable_themes(user):
     if not user:
@@ -243,7 +345,7 @@ def parse_content(text):
             content = text.replace(line, '', 1).strip()
             break
     commentary = ''
-    marker = '### Notas do Editor'
+    marker = '### Conclusões da IA'
     idx = content.find(marker)
     if idx != -1:
         commentary = content[idx + len(marker):].strip()
@@ -432,20 +534,20 @@ STREAK_THEMES = {
 }
 
 THEME_PRICES = {
-    3: 1.00,
-    30: 3.00,
-    60: 5.00,
-    90: 7.00,
-    120: 9.00,
-    150: 12.00,
-    180: 15.00,
-    210: 18.00,
-    240: 22.00,
-    270: 26.00,
-    300: 30.00,
-    330: 35.00,
-    360: 40.00,
-    365: 50.00,
+    3: 5.00,
+    30: 15.00,
+    60: 25.00,
+    90: 35.00,
+    120: 45.00,
+    150: 60.00,
+    180: 75.00,
+    210: 90.00,
+    240: 110.00,
+    270: 130.00,
+    300: 150.00,
+    330: 175.00,
+    360: 200.00,
+    365: 250.00,
 }
 
 STREAK_BONUS_POINTS = {3: 10, 30: 25, 60: 50, 90: 100, 120: 100, 150: 150,
@@ -578,15 +680,25 @@ def update_streak(user):
 def fetch_daily_diary():
     url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     try:
-        response = requests.get(url, timeout=30)
-        soup = bs4.BeautifulSoup(response.text, "html.parser")
-        botao_pdf = soup.select_one('a.btn-primary.arquivo-pdf')
-        if botao_pdf and botao_pdf.get('href'):
-            return urljoin('https://www.valadares.mg.gov.br', botao_pdf['href'])
+        s = requests.Session()
+        s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        resp = s.get(url, timeout=30)
+        soup = bs4.BeautifulSoup(resp.text, "html.parser")
+        link = soup.select_one('a.btn-primary.arquivo-pdf')
+        if link and link.get('href'):
+            return urljoin('https://www.valadares.mg.gov.br', link['href'])
         return None
     except Exception as e:
         print(f"Erro ao buscar diário: {e}")
         return None
+
+def extract_ajaxpro_handler(html):
+    soup = bs4.BeautifulSoup(html, 'html.parser')
+    for script in soup.find_all('script'):
+        src = script.get('src') or ''
+        if 'ajaxpro/diel_diel_lis,' in src:
+            return src.split('?')[0]
+    return None
 
 def perform_update_logic():
     now = datetime.now(BRT)
@@ -629,33 +741,50 @@ def perform_update_logic():
     return {"status": "no_change", "message": "Nenhum diário novo disponível."}
 
 def search_diary_by_date(target_date):
-    dt_start = datetime.combine(target_date, datetime.min.time(), tzinfo=BRT)
-    dt_end = datetime.combine(target_date, datetime.max.time(), tzinfo=BRT)
-    start_ms = int(dt_start.timestamp() * 1000)
-    end_ms = int(dt_end.timestamp() * 1000)
-    payload = {
-        'Page': 0, 'cdCaderno': 1, 'pagerLength': 50,
-        'dtSolicitadaInicio': f'/Date({start_ms})/',
-        'dtSolicitadaFim': f'/Date({end_ms})/',
-        'strPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
-    }
+    url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     try:
-        json_str = json.dumps(payload).replace('/', '\\/')
-        response = requests.post(
-            'https://www.valadares.mg.gov.br/ajaxpro/diel_diel_lis.ashx/GetDiario',
-            data=json_str, headers={'Content-Type': 'application/json; charset=utf-8'}, timeout=30
-        )
-        data = response.json()
+        s = requests.Session()
+        s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        resp = s.get(url, timeout=30)
+        handler_path = extract_ajaxpro_handler(resp.text)
+        if not handler_path:
+            raise Exception('AjaxPro handler not found')
+        handler_url = urljoin('https://www.valadares.mg.gov.br', handler_path)
+        dt_start = datetime.combine(target_date, datetime.min.time(), tzinfo=BRT)
+        dt_end = datetime.combine(target_date, datetime.max.time(), tzinfo=BRT)
+        start_ms = int(dt_start.timestamp() * 1000)
+        end_ms = int(dt_end.timestamp() * 1000)
+        payload = {
+            'Page': 0, 'cdCaderno': 1, 'pagerLength': 50,
+            'dtSolicitadaInicio': f'/Date({start_ms})/',
+            'dtSolicitadaFim': f'/Date({end_ms})/',
+            'strPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
+        }
+        body = json.dumps(payload)
+        headers = {
+            'X-AjaxPro-Method': 'GetDiario',
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Referer': url,
+        }
+        ajax_resp = s.post(handler_url, data=body, headers=headers, timeout=30)
+        text = ajax_resp.text.strip().lstrip(';').lstrip('/').strip()
+        if text.startswith('null'):
+            text = text[4:].lstrip(';').strip()
+        data = json.loads(text)
+        if data.get('error'):
+            raise Exception(f"AjaxPro error: {data['error'].get('Message', text)}")
         if data.get('value') and data['value'].get('Rows'):
-            for row in data['value']['Rows']:
-                pdf_url = row.get('URLABRIRARQUIVO', '') or (
-                    f'https://www.valadares.mg.gov.br/abrir_arquivo.aspx?cdLocal=12&arquivo={row["NMARQUIVO"]}{row["NMEXTENSAOARQUIVO"]}'
-                )
+            rows = data['value']['Rows']
+            for row in rows:
+                pdf_url = row.get('URLABRIRARQUIVO', '')
+                if not pdf_url:
+                    pdf_url = f'https://www.valadares.mg.gov.br/abrir_arquivo.aspx?cdLocal=12&arquivo={row["NMARQUIVO"]}{row["NMEXTENSAOARQUIVO"]}'
                 if pdf_url:
                     return pdf_url
+        return None
     except Exception as e:
         print(f"Erro ao buscar diário por data: {e}")
-    return None
+        return None
 
 @app.route('/')
 def index():
@@ -997,14 +1126,14 @@ def create_checkout():
     plan = request.form.get('plan', '')
     billing_type = request.form.get('billing_type', 'card')
     plans_map = {
-        '1dia': (10.00, '1 Dia - Diário Reduzido'),
-        '1mes': (30.00, '1 Mês - Diário Reduzido'),
-        '3meses': (20.00, '3 Meses - Diário Reduzido'),
-        '6meses': (60.00, '6 Meses - Diário Reduzido'),
-        '12meses': (108.00, 'Anual - Diário Reduzido'),
-        'freeze1': (5.00, '1 Congelamento de Streak'),
-        'freeze3': (12.00, '3 Congelamentos de Streak'),
-        'freeze5': (18.00, '5 Congelamentos de Streak'),
+        '1dia': (50.00, '1 Dia - Diário Reduzido'),
+        '1mes': (150.00, '1 Mês - Diário Reduzido'),
+        '3meses': (100.00, '3 Meses - Diário Reduzido'),
+        '6meses': (300.00, '6 Meses - Diário Reduzido'),
+        '12meses': (540.00, 'Anual - Diário Reduzido'),
+        'freeze1': (25.00, '1 Congelamento de Streak'),
+        'freeze3': (60.00, '3 Congelamentos de Streak'),
+        'freeze5': (90.00, '5 Congelamentos de Streak'),
     }
     for tid, (tname, _) in STREAK_THEMES.items():
         plans_map[f'theme_{tid}'] = (get_theme_price(tid), f'Tema: {tname}')
@@ -1259,7 +1388,21 @@ def update_badge():
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
 
-app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price)
+@app.route('/update-font', methods=['POST'])
+@login_required
+def update_font():
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    font_id = request.form.get('font', '').strip()
+    unlocked = [f[0] for f in get_unlocked_fonts(user)]
+    if font_id and font_id not in unlocked:
+        return jsonify({'error': 'Fonte não disponível.'}), 400
+    user.font = font_id if font_id != 'default' else None
+    db.session.commit()
+    return redirect(request.referrer or url_for('dashboard'))
+
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name)
 
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true', port=5000)
