@@ -230,10 +230,15 @@
                 <button onclick="copyDonationPix()" style="margin-top: 0.4rem; background: none; border: 1px solid #aaa; padding: 0.25rem 0.8rem; font-family: 'Crimson Pro', serif; font-size: 0.75rem; cursor: pointer; color: #555;">Copiar chave</button>
             </div>
             {% if not user %}
-            <div style="text-align: center; flex: 0 1 auto;">
-                <p style="font-family: 'Playfair Display', serif; font-size: 1rem; margin-bottom: 1rem;">Faça parte</p>
-                <a href="/register" style="display: block; background: var(--ink-color); color: #fff; text-decoration: none; padding: 0.8rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.8rem; transition: background 0.2s;" onmouseover="this.style.background='var(--accent-red)'" onmouseout="this.style.background='var(--ink-color)'">Criar conta</a>
-                <a href="/login" style="display: block; background: transparent; color: var(--ink-color); text-decoration: none; padding: 0.7rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; border: 1px solid var(--ink-color); transition: all 0.2s;" onmouseover="this.style.background='var(--ink-color)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--ink-color)'">Entrar</a>
+            <div style="text-align: center; flex: 0 1 auto; max-width: 300px;">
+                <p style="font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 0.3rem;">Nunca mais perca um edital</p>
+                <p style="font-size: 0.85rem; color: #555; line-height: 1.6; margin-bottom: 1.2rem;">
+                    Crie sua conta e tenha acesso a <strong>arquivo completo</strong>,
+                    <strong>favoritos</strong>, <strong>busca por data</strong>
+                    e resumo de <strong>qualquer diário antigo</strong> sob demanda.
+                </p>
+                <a href="/register" style="display: block; background: var(--ink-color); color: #fff; text-decoration: none; padding: 0.8rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.8rem; transition: background 0.2s;" onmouseover="this.style.background='var(--accent-red)'" onmouseout="this.style.background='var(--ink-color)'">Criar conta grátis</a>
+                <a href="/login" style="display: block; background: transparent; color: var(--ink-color); text-decoration: none; padding: 0.7rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; border: 1px solid var(--ink-color); transition: all 0.2s;" onmouseover="this.style.background='var(--ink-color)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--ink-color)'">Já tenho conta &rarr;</a>
             </div>
             {% endif %}
         </div>
