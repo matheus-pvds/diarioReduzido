@@ -217,29 +217,30 @@
             verificação a cada {{ check_interval or 60 }} min
             {% endif %}
         </div>
-        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px dashed #ccc; display: flex; gap: 2rem; align-items: center; justify-content: center; flex-wrap: wrap;">
-            <div style="text-align: center; flex: 0 1 auto;">
-                <p style="font-family: 'Playfair Display', serif; font-size: 1rem; margin-bottom: 0.8rem;">Gostou do conteúdo?<br><span style="font-size: 0.85rem; color: #666;">Ajude com um PIX</span></p>
-                <div style="width: 140px; height: 140px; border: 2px dashed #aaa; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px;">
+        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px dashed #ccc; display: flex; gap: 2rem; align-items: stretch; justify-content: center; flex-wrap: wrap;">
+            <div style="text-align: center; flex: 0 1 auto; padding: 0.5rem;">
+                <p style="font-family: 'Playfair Display', serif; font-size: 0.9rem; color: #666; margin-bottom: 0.8rem;">Gostou?<br><span style="font-size: 0.75rem;">Contribua com um PIX</span></p>
+                <div style="width: 120px; height: 120px; border: 2px dashed #aaa; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px;">
                     <div style="text-align: center; color: #666;">
-                        <div style="font-size: 3rem; line-height: 1;">&#9749;</div>
-                        <div style="font-size: 0.6rem; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 1px;">PIX</div>
+                        <div style="font-size: 2.5rem; line-height: 1;">&#9749;</div>
                     </div>
                 </div>
-                <div style="font-family: monospace; font-size: 0.65rem; word-break: break-all; background: #f0ede5; padding: 0.4rem; max-width: 260px; margin: 0 auto; border: 1px solid #ddd; color: #555;" id="pixKey">sua-chave-pix@exemplo.com</div>
-                <button onclick="copyDonationPix()" style="margin-top: 0.4rem; background: none; border: 1px solid #aaa; padding: 0.25rem 0.8rem; font-family: 'Crimson Pro', serif; font-size: 0.75rem; cursor: pointer; color: #555;">Copiar chave</button>
+                <div style="font-family: monospace; font-size: 0.6rem; word-break: break-all; background: #f0ede5; padding: 0.3rem; max-width: 220px; margin: 0 auto; border: 1px solid #ddd; color: #555;" id="pixKey">sua-chave-pix@exemplo.com</div>
+                <button onclick="copyDonationPix()" style="margin-top: 0.3rem; background: none; border: 1px solid #aaa; padding: 0.2rem 0.7rem; font-family: 'Crimson Pro', serif; font-size: 0.7rem; cursor: pointer; color: #555;">Copiar chave</button>
             </div>
             {% if not user %}
-            <div style="text-align: center; flex: 0 1 auto; max-width: 300px;">
-                <p style="font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 0.3rem;">Nunca mais perca um edital</p>
-                <p style="font-size: 0.85rem; color: #555; line-height: 1.6; margin-bottom: 1.2rem;">
-                    Crie sua conta e tenha acesso a <strong>arquivo completo</strong>,
-                    <strong>favoritos</strong>, <strong>busca por data</strong>
-                    e resumo de <strong>qualquer diário antigo</strong> sob demanda.
+            <div style="flex: 0 1 auto; max-width: 340px; padding: 0.5rem; border-left: 1px solid #ddd; padding-left: 1.5rem; display: flex; flex-direction: column; justify-content: center;">
+                <p style="font-family: 'Playfair Display', serif; font-size: 1.3rem; line-height: 1.2; margin-bottom: 0.4rem;">Menos papel, mais clareza</p>
+                <p style="font-size: 0.8rem; color: #666; margin-bottom: 1rem; line-height: 1.5;">
+                    De graça: veja o resumo do dia, pesquise edições antigas, favorite o que te interessa.
                 </p>
-                <a href="/register" style="display: block; background: var(--ink-color); color: #fff; text-decoration: none; padding: 0.8rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem; transition: background 0.2s;" onmouseover="this.style.background='var(--accent-red)'" onmouseout="this.style.background='var(--ink-color)'">Criar conta grátis</a>
-                <a href="/planos" style="display: block; background: transparent; color: var(--accent-red); text-decoration: none; padding: 0.5rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; border: 1px solid var(--accent-red); margin-bottom: 0.8rem; transition: all 0.2s;" onmouseover="this.style.background='var(--accent-red)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--accent-red)'">Ver planos</a>
-                <a href="/login" style="display: block; background: transparent; color: var(--ink-color); text-decoration: none; padding: 0.7rem 2.5rem; font-family: 'Playfair Display', serif; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; border: 1px solid var(--ink-color); transition: all 0.2s;" onmouseover="this.style.background='var(--ink-color)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--ink-color)'">Já tenho conta &rarr;</a>
+                <div style="display: flex; gap: 0.6rem; justify-content: center;">
+                    <a href="/register" style="flex: 1; background: var(--ink-color); color: #fff; text-decoration: none; padding: 0.7rem 0.5rem; font-family: 'Playfair Display', serif; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; text-align: center; transition: background 0.2s;" onmouseover="this.style.background='var(--accent-red)'" onmouseout="this.style.background='var(--ink-color)'">Criar conta</a>
+                    <a href="/planos" style="flex: 1; background: transparent; color: var(--accent-red); text-decoration: none; padding: 0.7rem 0.5rem; font-family: 'Playfair Display', serif; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; border: 1px solid var(--accent-red); text-align: center; transition: all 0.2s;" onmouseover="this.style.background='var(--accent-red)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--accent-red)'">Ver planos</a>
+                </div>
+                <p style="margin-top: 0.7rem; font-size: 0.75rem; color: #999;">
+                    <a href="/login" style="color: #999; text-decoration: underline;">Já tem conta? Entre</a>
+                </p>
             </div>
             {% endif %}
         </div>
