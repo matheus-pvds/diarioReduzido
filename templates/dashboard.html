@@ -245,10 +245,10 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% set current_title = user.title %}
                 {% for days, title, emoji in unlocked_titles %}
-                <div class="title-option {% if current_title == title %}active{% endif %}" onclick="this.querySelector('input').click(); this.closest('form').submit();">
-                    <input type="radio" name="title" value="{{ title }}" {% if current_title == title %}checked{% endif %} onchange="this.closest('form').submit();">
-                    <label>{{ emoji }} {{ title }} ({{ days }} dias)</label>
-                </div>
+                <label class="title-option {% if current_title == title %}active{% endif %}">
+                    <input type="radio" name="title" value="{{ title }}" {% if current_title == title %}checked{% endif %} onchange="this.closest('form').submit()">
+                    {{ emoji }} {{ title }} ({{ days }} dias)
+                </label>
                 {% endfor %}
                 {% if current_title %}
                 <div style="margin-top:0.5rem;">
@@ -265,10 +265,10 @@
             <form method="post" action="/theme" id="themeForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% for t_id, t_name in unlocked_themes %}
-                <div class="theme-option {% if user.theme == t_id %}active{% endif %}" onclick="this.querySelector('input').click(); this.closest('form').submit();">
-                    <input type="radio" name="theme" value="{{ t_id }}" {% if user.theme == t_id %}checked{% endif %} onchange="this.closest('form').submit();">
-                    <label>{{ t_name }}</label>
-                </div>
+                <label class="theme-option {% if user.theme == t_id %}active{% endif %}">
+                    <input type="radio" name="theme" value="{{ t_id }}" {% if user.theme == t_id %}checked{% endif %} onchange="this.closest('form').submit()">
+                    {{ t_name }}
+                </label>
                 {% endfor %}
             </form>
         </div>
@@ -301,14 +301,16 @@
             <form method="post" action="/update-badge" id="badgeForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% for bid, bname, bemoji, owned in purchasable_badges %}
-                <div class="title-option {% if owned %}active{% endif %}" style="display:inline-flex;align-items:center;gap:0.3rem;" onclick="this.querySelector('input').click(); this.closest('form').submit();">
-                    {% if owned %}
-                    <input type="radio" name="badge" value="{{ bid }}" {% if owned %}checked{% endif %} onchange="this.closest('form').submit();">
-                    <label>{{ bemoji }} {{ bname }}</label>
-                    {% else %}
+                {% if owned %}
+                <label class="title-option active" style="display:inline-flex;align-items:center;gap:0.3rem;">
+                    <input type="radio" name="badge" value="{{ bid }}" onchange="this.closest('form').submit()">
+                    {{ bemoji }} {{ bname }}
+                </label>
+                {% else %}
+                <div class="title-option" style="display:inline-flex;align-items:center;gap:0.3rem;">
                     <a href="/planos" style="color:var(--accent-red);font-size:0.75rem;text-decoration:none;border:1px dashed var(--border-light);padding:0.3rem 0.6rem;border-radius:20px;">{{ bemoji }} {{ bname }} — R$15</a>
-                    {% endif %}
                 </div>
+                {% endif %}
                 {% endfor %}
             </form>
         </div>
@@ -339,10 +341,10 @@
             <form method="post" action="/update-font" id="fontForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% for fid, fname, fcss in unlocked_fonts %}
-                <div class="title-option {% if (user.font or 'default') == fid %}active{% endif %}" style="font-family:{{ fcss }};" onclick="this.querySelector('input').click(); this.closest('form').submit();">
-                    <input type="radio" name="font" value="{{ fid }}" {% if (user.font or 'default') == fid %}checked{% endif %} onchange="this.closest('form').submit();">
-                    <label>{{ fname }}</label>
-                </div>
+                <label class="title-option {% if (user.font or 'default') == fid %}active{% endif %}" style="font-family:{{ fcss }};">
+                    <input type="radio" name="font" value="{{ fid }}" {% if (user.font or 'default') == fid %}checked{% endif %} onchange="this.closest('form').submit()">
+                    {{ fname }}
+                </label>
                 {% endfor %}
             </form>
         </div>
