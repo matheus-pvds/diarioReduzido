@@ -498,7 +498,10 @@ with app.app_context():
     if not AppConfig.query.filter_by(key='is_checking').first():
         db.session.add(AppConfig(key='is_checking', value='false'))
     db.session.commit()
-    migrate_existing_posts()
+    try:
+        migrate_existing_posts()
+    except Exception:
+        pass
 
 app._schema_checked = False
 
@@ -507,6 +510,10 @@ def ensure_schema():
     if not app._schema_checked:
         with app.app_context():
             migrate_columns()
+            try:
+                migrate_existing_posts()
+            except Exception:
+                pass
         app._schema_checked = True
 
 @app.after_request
