@@ -106,8 +106,12 @@ class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
+    edited_at = db.Column(db.DateTime(timezone=True), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True)
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]),
+                              lazy=True, order_by='Comment.created_at')
 
 PLAN_DAYS = { '1dia': 1, '1mes': 30, '3meses': 90, '6meses': 180, '12meses': 365 }
 PLAN_VALUES = { '1dia': 50.00, '1mes': 150.00, '3meses': 100.00, '6meses': 300.00, '12meses': 540.00 }
@@ -270,10 +274,27 @@ def get_unlocked_fonts(user):
     return result
 
 def get_all_font_urls():
+    families = ['Playfair+Display:ital,wght@0,400..900;1,400..900',
+                'Crimson+Pro:ital,wght@0,200..900;1,200..900',
+                'Inconsolata:wght@200..900']
+    return f"https://fonts.googleapis.com/css2?{'&'.join('family=' + f for f in families)}&display=swap"
+
+def get_user_font_url(user):
+    if not user:
+        return get_all_font_urls()
     names = set()
-    for _, (fid, fname, _) in STREAK_FONTS.items():
-        names.add(fname)
-    names.add(ADMIN_FONT[1])
+    names.add('Playfair Display')
+    names.add('Crimson Pro')
+    names.add('Inconsolata')
+    if user.font and user.font != 'default':
+        for _, (fid, fname, _) in STREAK_FONTS.items():
+            if fid == user.font:
+                names.add(fname)
+                break
+    unlocked = get_unlocked_fonts(user)
+    for fid, fname, _ in unlocked:
+        if fid != 'default':
+            names.add(fname)
     families = [n.replace(' ', '+') for n in sorted(names)]
     return f"https://fonts.googleapis.com/css2?{'&'.join('family=' + f for f in families)}&display=swap"
 
@@ -507,8 +528,11 @@ def record_attempt(ip, success):
 RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '')
 RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '')
 
+def _captcha_disabled():
+    return RECAPTCHA_SITE_KEY or app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true'
+
 def generate_captcha():
-    if RECAPTCHA_SITE_KEY:
+    if _captcha_disabled():
         return None
     a, b = random.randint(1, 12), random.randint(1, 12)
     op = random.choice(['+', '-'])
@@ -518,6 +542,8 @@ def generate_captcha():
     return f"{a} {op} {b}"
 
 def validate_captcha(answer):
+    if app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true':
+        return True
     if RECAPTCHA_SECRET_KEY:
         token = request.form.get('g-recaptcha-response', '')
         if not token:
@@ -652,8 +678,10 @@ def get_user_title(user):
     pioneer = AppConfig.query.filter_by(key='first_365_user_id').first()
     if pioneer and pioneer.value and str(user.id) == pioneer.value:
         return PIONEER_TITLE
-    if user.title and user.title in [v[0] for v in STREAK_TITLES.values()]:
-        return user.title
+    if user.title:
+        for days, (tname, temoji) in STREAK_TITLES.items():
+            if tname == user.title:
+                return (tname, temoji)
     streak = user.streak_count or 0
     best = None
     best_days = 0
@@ -787,8 +815,51 @@ def perform_update_logic():
             return {"status": "error", "message": str(e)}
     return {"status": "no_change", "message": "Nenhum diário novo disponível."}
 
+def _ajaxpro_datetime(dt):
+    return {"__type": "System.DateTime", "Year": dt.year, "Month": dt.month,
+            "Day": dt.day, "Hour": dt.hour, "Minute": dt.minute,
+            "Second": dt.second, "Millisecond": dt.microsecond // 1000}
+
+def _parse_datatable_js(text):
+    m = re.search(r'new Ajax\.Web\.DataTable\(', text)
+    if not m:
+        return []
+    start = m.end()
+    depth = 0
+    comma_pos = None
+    for i, ch in enumerate(text[start:], start):
+        if ch == '[':
+            depth += 1
+        elif ch == ']':
+            depth -= 1
+            if depth == 0:
+                cols_end = i + 1
+                break
+    else:
+        return []
+    rest = text[cols_end:].lstrip().lstrip(',').lstrip()
+    if not rest.startswith('['):
+        return []
+    depth = 0
+    for i, ch in enumerate(rest):
+        if ch == '[':
+            depth += 1
+        elif ch == ']':
+            depth -= 1
+            if depth == 0:
+                rows_str = rest[:i + 1]
+                break
+    else:
+        return []
+    cols_text = text[start:cols_end]
+    cols = re.findall(r'\["(\w+)","[^"]+"\]', cols_text)
+    rows_str = re.sub(r'new Date\([^)]+\)', 'null', rows_str)
+    raw_rows = json.loads(rows_str)
+    return [dict(zip(cols, row)) for row in raw_rows]
+
 def search_diary_by_date(target_date):
     url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
+    base_pdf = 'https://www.valadares.mg.gov.br'
     try:
         s = requests.Session()
         s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
@@ -796,16 +867,14 @@ def search_diary_by_date(target_date):
         handler_path = extract_ajaxpro_handler(resp.text)
         if not handler_path:
             raise Exception('AjaxPro handler not found')
-        handler_url = urljoin('https://www.valadares.mg.gov.br', handler_path)
+        handler_url = urljoin(base_pdf, handler_path)
         dt_start = datetime.combine(target_date, datetime.min.time(), tzinfo=BRT)
         dt_end = datetime.combine(target_date, datetime.max.time(), tzinfo=BRT)
-        start_ms = int(dt_start.timestamp() * 1000)
-        end_ms = int(dt_end.timestamp() * 1000)
         payload = {
-            'Page': 0, 'cdCaderno': 1, 'pagerLength': 50,
-            'dtSolicitadaInicio': f'/Date({start_ms})/',
-            'dtSolicitadaFim': f'/Date({end_ms})/',
-            'strPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
+            'Page': 0, 'cdCaderno': 1, 'Size': 10,
+            'dtDiario_menor': _ajaxpro_datetime(dt_start),
+            'dtDiario_maior': _ajaxpro_datetime(dt_end),
+            'dsPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
         }
         body = json.dumps(payload)
         headers = {
@@ -813,21 +882,26 @@ def search_diary_by_date(target_date):
             'Content-Type': 'text/plain; charset=utf-8',
             'Referer': url,
         }
-        ajax_resp = s.post(handler_url, data=body, headers=headers, timeout=30)
-        text = ajax_resp.text.strip().lstrip(';').lstrip('/').strip()
-        if text.startswith('null'):
-            text = text[4:].lstrip(';').strip()
-        data = json.loads(text)
-        if data.get('error'):
-            raise Exception(f"AjaxPro error: {data['error'].get('Message', text)}")
-        if data.get('value') and data['value'].get('Rows'):
-            rows = data['value']['Rows']
-            for row in rows:
-                pdf_url = row.get('URLABRIRARQUIVO', '')
-                if not pdf_url:
-                    pdf_url = f'https://www.valadares.mg.gov.br/abrir_arquivo.aspx?cdLocal=12&arquivo={row["NMARQUIVO"]}{row["NMEXTENSAOARQUIVO"]}'
-                if pdf_url:
-                    return pdf_url
+        ajax_resp = s.post(handler_url, data=body, headers=headers, timeout=60)
+        raw = ajax_resp.text.strip().rstrip(';').strip()
+        if raw.startswith('null'):
+            err_part = raw[4:].lstrip(';').strip().rstrip('/*').strip()
+            if err_part:
+                try:
+                    err = json.loads(err_part)
+                    raise Exception(f"AjaxPro error: {err.get('Message', err_part)}")
+                except json.JSONDecodeError:
+                    pass
+            return None
+        rows = _parse_datatable_js(raw)
+        for row in rows:
+            pdf_url = row.get('URLABRIRARQUIVO', '')
+            if not pdf_url:
+                fname = row.get('NMARQUIVO', '') + row.get('NMEXTENSAOARQUIVO', '')
+                if fname:
+                    pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
+            if pdf_url:
+                return pdf_url
         return None
     except Exception as e:
         print(f"Erro ao buscar diário por data: {e}")
@@ -916,7 +990,6 @@ def login():
     if request.method == 'POST':
         import sys
         ip = get_client_ip()
-        print(f"\nLOGIN: user={request.form.get('username')!r} pw={request.form.get('password')!r} captcha={request.form.get('captcha')!r} csrf={request.form.get('csrf_token','')[:20]}", file=sys.stderr)
         if not check_rate_limit(ip):
             print('→ RATE LIMIT', file=sys.stderr)
             return render_template('login.html', error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
@@ -1423,6 +1496,55 @@ def add_comment(post_id):
     db.session.commit()
     return redirect(request.referrer or url_for('index') + '#comments')
 
+@app.route('/comment/<int:comment_id>/edit', methods=['POST'])
+@login_required
+def edit_comment(comment_id):
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    comment = Comment.query.get_or_404(comment_id)
+    if comment.author != user and user.username != 'admin':
+        return jsonify({'error': 'Permissão negada.'}), 403
+    content = request.form.get('content', '').strip()
+    if not content or len(content) < 2:
+        return jsonify({'error': 'Mínimo 2 caracteres.'}), 400
+    if len(content) > 1000:
+        return jsonify({'error': 'Máximo 1000 caracteres.'}), 400
+    comment.content = content
+    comment.edited_at = datetime.now(BRT)
+    db.session.commit()
+    return redirect(request.referrer or url_for('index') + '#comments')
+
+@app.route('/comment/<int:comment_id>/delete', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    comment = Comment.query.get_or_404(comment_id)
+    if comment.author != user and user.username != 'admin':
+        return jsonify({'error': 'Permissão negada.'}), 403
+    db.session.delete(comment)
+    db.session.commit()
+    return redirect(request.referrer or url_for('index') + '#comments')
+
+@app.route('/comment/<int:comment_id>/reply', methods=['POST'])
+@login_required
+def reply_comment(comment_id):
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    parent = Comment.query.get_or_404(comment_id)
+    content = request.form.get('content', '').strip()
+    if not content or len(content) < 2:
+        return jsonify({'error': 'Mínimo 2 caracteres.'}), 400
+    if len(content) > 1000:
+        return jsonify({'error': 'Máximo 1000 caracteres.'}), 400
+    reply = Comment(content=content, author=user, post=parent.post, parent_id=parent.id)
+    db.session.add(reply)
+    db.session.commit()
+    return redirect(request.referrer or url_for('index') + '#comments')
+
 @app.route('/theme', methods=['POST'])
 @login_required
 def update_theme():
@@ -1484,7 +1606,11 @@ def update_font():
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
 
-app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS)
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS, get_all_font_urls=get_all_font_urls, get_user_font_url=get_user_font_url)
+
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('favicon.ico')
 
 if __name__ == '__main__':
     app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true', port=5000)

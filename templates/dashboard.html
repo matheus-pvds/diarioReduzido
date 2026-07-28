@@ -7,11 +7,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather&family=Lora&family=Spectral&family=Vollkorn&family=Bitter&family=Arvo&family=Roboto+Slab&family=Zilla+Slab&family=Source+Serif+4&family=EB+Garamond&family=Cormorant+Garamond&family=Libre+Baskerville&family=Cardo&family=Tinos&family=PT+Serif&family=Karla&family=Inter&family=Nunito&family=Rubik&family=Work+Sans&family=Open+Sans&family=Lato&family=Montserrat&family=Raleway&family=Ubuntu&family=Fira+Sans&family=DM+Sans&family=Manrope&family=Outfit&family=Sora&family=Archivo&family=Space+Grotesk&family=Josefin+Sans&family=Barlow&family=Mulish&family=Quicksand&family=Asap&family=Maven+Pro&family=Overpass&family=Epilogue&family=Urbanist&family=Exo+2&family=Oxanium&family=Rajdhani&family=Prompt&family=Figtree&family=Plus+Jakarta+Sans&family=Chivo&family=Libre+Franklin&family=Source+Sans+3&family=DM+Serif+Display&family=Unbounded&display=swap" rel="stylesheet">
+    <link href="{{ get_user_font_url(user) }}" rel="stylesheet">
     <style>
-        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-light: #ccc; --accent-red: #a00; --gold: #c8962e; --green: #2e7d32; }
+        :root { --paper-color: #f9f7f1; --ink-color: #1a1a1a; --border-heavy: #333; --border-light: #ccc; --accent-red: #a00; --bg-body: #e0ddd5; --font-heading: 'Playfair Display', serif; --font-body: 'Crimson Pro', serif; --comment-bg: #f5f0e8; --gold: #c8962e; --green: #2e7d32; }
+
+        .theme-dark { --paper-color: #1a1a2e; --ink-color: #e0e0e0; --border-heavy: #555; --border-light: #333; --accent-red: #e94560; --bg-body: #0f0f1a; --comment-bg: #16213e; }
+        .theme-sepia { --paper-color: #f5e6c8; --ink-color: #5b4636; --border-heavy: #8b7355; --border-light: #c4a97d; --accent-red: #8b4513; --bg-body: #e8dcc8; --comment-bg: #efe3c8; }
+        .theme-matrix { --paper-color: #0a0a0a; --ink-color: #00ff41; --border-heavy: #00ff41; --border-light: #003b00; --accent-red: #ff0040; --bg-body: #000; --comment-bg: #0d1a0d; --font-heading: 'Inconsolata', monospace; --font-body: 'Inconsolata', monospace; }
+        .theme-ocean { --paper-color: #e8f4f8; --ink-color: #023047; --border-heavy: #219ebc; --border-light: #8ecae6; --accent-red: #fb8500; --bg-body: #caf0f8; --comment-bg: #d4edf5; }
+        .theme-forest { --paper-color: #1a2f1a; --ink-color: #d4e7c5; --border-heavy: #4a7c4f; --border-light: #2d4a2e; --accent-red: #e8a87c; --bg-body: #0d1f0d; --comment-bg: #1f3a1f; }
+        .theme-sunset { --paper-color: #2d1b2e; --ink-color: #fce4d6; --border-heavy: #e07a5f; --border-light: #6d2e3a; --accent-red: #f4a261; --bg-body: #1a0f1a; --comment-bg: #3d2030; }
+        .theme-midnight { --paper-color: #0d1321; --ink-color: #c0c8d4; --border-heavy: #3e5c76; --border-light: #1d2d44; --accent-red: #f0a500; --bg-body: #070b14; --comment-bg: #152238; }
+        .theme-lavender { --paper-color: #f0e6ff; --ink-color: #3d2c5e; --border-heavy: #7b5ea7; --border-light: #c9b8e8; --accent-red: #9b5de5; --bg-body: #e0d4f5; --comment-bg: #e8dfff; }
+        .theme-sakura { --paper-color: #fff0f5; --ink-color: #5c2e3b; --border-heavy: #d4818a; --border-light: #f5c6d0; --accent-red: #c44569; --bg-body: #fce4ec; --comment-bg: #fef0f5; }
+        .theme-mint { --paper-color: #e6faf5; --ink-color: #1a4a3a; --border-heavy: #2d8a6e; --border-light: #a8e6cf; --accent-red: #e85d75; --bg-body: #d0f0e8; --comment-bg: #dff5ef; }
+        .theme-ember { --paper-color: #1c0f08; --ink-color: #ffd5a0; --border-heavy: #c24914; --border-light: #5c2a0a; --accent-red: #fc7303; --bg-body: #0f0703; --comment-bg: #2a160a; }
+        .theme-galaxy { --paper-color: #0b0c1a; --ink-color: #d4d4f7; --border-heavy: #5c4d9e; --border-light: #2a2450; --accent-red: #7b68ee; --bg-body: #05050f; --comment-bg: #14152e; }
+        .theme-royal { --paper-color: #1a0a3e; --ink-color: #f0e6ff; --border-heavy: #9b59b6; --border-light: #4a1a6e; --accent-red: #e74c3c; --bg-body: #0d0420; --comment-bg: #2a1050; }
+        .theme-coroado { --paper-color: #1a0a00; --ink-color: #ffd700; --border-heavy: #ffd700; --border-light: #6b3a00; --accent-red: #ff4500; --bg-body: #0d0500; --comment-bg: #2a1500; --font-heading: 'Playfair Display', serif; --font-body: 'Crimson Pro', serif; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background-color: #e0ddd5; color: var(--ink-color); font-family: 'Crimson Pro', serif; line-height: 1.5; padding: 2rem 1rem; }
+        body { background-color: var(--bg-body); color: var(--ink-color); font-family: var(--font-body); line-height: 1.5; padding: 2rem 1rem; }
         .container { max-width: 700px; margin: 0 auto; background-color: var(--paper-color); padding: 3rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); min-height: 80vh; border: 1px solid #ddd; }
         h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; text-align: center; border-bottom: 4px double var(--ink-color); padding-bottom: 1rem; margin-bottom: 2rem; }
         .user-greeting { text-align: center; font-size: 1.1rem; margin-bottom: 2rem; color: #555; }
@@ -89,10 +104,25 @@
         .theme-coroado.premium-bg { --bg-body: #0d0500 radial-gradient(ellipse at 50% 0%, rgba(255,215,0,0.06) 0%, transparent 50%); }
         .theme-coroado.premium-bg .bg-showcase-inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; background-image: radial-gradient(2px 2px at 15% 10%, rgba(255,215,0,0.3) 0%, transparent 100%), radial-gradient(2px 2px at 30% 25%, rgba(255,215,0,0.2) 0%, transparent 100%), radial-gradient(3px 3px at 50% 15%, rgba(255,215,0,0.25) 0%, transparent 100%), radial-gradient(2px 2px at 65% 30%, rgba(255,215,0,0.2) 0%, transparent 100%), radial-gradient(2px 2px at 80% 12%, rgba(255,215,0,0.3) 0%, transparent 100%), radial-gradient(3px 3px at 40% 40%, rgba(255,215,0,0.15) 0%, transparent 100%); }
 
-        @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) {
+            .container { padding: 1.5rem 1rem; }
+            h1 { font-size: 1.6rem; }
+            .card { padding: 1rem; }
+            .card h2 { font-size: 1.1rem; }
+            .info-grid { grid-template-columns: 1fr; }
+            .title-option, .theme-option { margin: 0.2rem; padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+            .bg-showcase { height: 150px; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 1rem 0.5rem; }
+            .container { padding: 1rem 0.8rem; }
+            h1 { font-size: 1.3rem; }
+            .search-form input[type=date] { min-width: 140px; }
+            .container { min-height: auto; }
+        }
     </style>
 </head>
-<body class="{{ 'theme-' + user.theme if user.theme and user.theme != 'newspaper' else '' }}{{ ' premium-bg' if user.is_paid and user.theme and user.theme != 'newspaper' else '' }}">
+<body class="theme-{{ user.theme if user.theme else 'newspaper' }}{{ ' premium-bg' if user.is_paid and user.theme and user.theme != 'newspaper' else '' }}">
     <div class="container">
         <h1>Painel</h1>
         <p class="user-greeting">Bem-vindo, <strong>{{ user.username }}</strong>
@@ -105,22 +135,25 @@
             {% endif %}
         </p>
 
-        <div class="card">
-            <h2>&#128240; Diário mais recente</h2>
-            {% if latest %}
-            <a href="/" class="big-link">Ver edição de {{ latest.date.strftime('%d/%m/%Y') if latest.date else 'hoje' }}</a>
-            {% else %}
-            <p style="text-align:center;color:#888;">Nenhuma edição disponível ainda.</p>
-            {% endif %}
-        </div>
-
-        <div class="card">
-            <h2>&#128197; Buscar por data</h2>
-            <form class="search-form" method="post" action="/search-date">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <input type="date" name="date" required>
-                <button type="submit">Buscar</button>
-            </form>
+        <div class="card cidadaometro">
+            <h2>&#127891; Cidadanômetro</h2>
+            <p style="font-size:0.9rem; color:#888; text-align:center;">
+                {% if user.streak_count %}
+                <strong style="color:var(--accent-red);">{{ user.streak_count }}</strong> dias consecutivos de leitura
+                {% else %}
+                Nenhum dia consecutivo ainda. Faça login diariamente para progredir!
+                {% endif %}
+                {% if streak_freezes %}
+                &bull; <span style="color:var(--gold);">&#10052;&#65039; {{ streak_freezes }} congelamento{{ 's' if streak_freezes > 1 else '' }}</span>
+                {% endif %}
+            </p>
+            <div class="track">
+                <div class="fill" style="width:{{ cidadao_pct }}%;"></div>
+            </div>
+            <div class="label">{{ cidadao_pct }}% completo &mdash; {{ 90 - (user.streak_count or 0) }} dias para o título "Cidadão Exemplar"</div>
+            <div style="margin-top:0.8rem; font-size:0.8rem;">
+                <a href="/planos" style="color:var(--accent-red);">Comprar congelamentos de streak &#10052;&#65039;</a>
+            </div>
         </div>
 
         <div class="card">
@@ -185,25 +218,22 @@
             </div>
         </div>
 
-        <div class="card cidadaometro">
-            <h2>&#127891; Cidadanômetro</h2>
-            <p style="font-size:0.9rem; color:#888; text-align:center;">
-                {% if user.streak_count %}
-                <strong style="color:var(--accent-red);">{{ user.streak_count }}</strong> dias consecutivos de leitura
-                {% else %}
-                Nenhum dia consecutivo ainda. Faça login diariamente para progredir!
-                {% endif %}
-                {% if streak_freezes %}
-                &bull; <span style="color:var(--gold);">&#10052;&#65039; {{ streak_freezes }} congelamento{{ 's' if streak_freezes > 1 else '' }}</span>
-                {% endif %}
-            </p>
-            <div class="track">
-                <div class="fill" style="width:{{ cidadao_pct }}%;"></div>
-            </div>
-            <div class="label">{{ cidadao_pct }}% completo &mdash; {{ 90 - (user.streak_count or 0) }} dias para o título "Cidadão Exemplar"</div>
-            <div style="margin-top:0.8rem; font-size:0.8rem;">
-                <a href="/planos" style="color:var(--accent-red);">Comprar congelamentos de streak &#10052;&#65039;</a>
-            </div>
+        <div class="card">
+            <h2>&#128240; Diário mais recente</h2>
+            {% if latest %}
+            <a href="/" class="big-link">Ver edição de {{ latest.date.strftime('%d/%m/%Y') if latest.date else 'hoje' }}</a>
+            {% else %}
+            <p style="text-align:center;color:#888;">Nenhuma edição disponível ainda.</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>&#128197; Buscar por data</h2>
+            <form class="search-form" method="post" action="/search-date">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="date" name="date" required>
+                <button type="submit">Buscar</button>
+            </form>
         </div>
 
         {% if unlocked_titles %}
@@ -243,6 +273,26 @@
         </div>
         {% endif %}
 
+        {% if user.theme and user.theme != 'newspaper' %}
+        <div class="card">
+            <h2>&#127912; Vitrine do Tema</h2>
+            <p style="font-size:0.85rem; color:#888; margin-bottom:0.5rem;">
+                Fundo premium exclusivo para assinantes{% if not user.is_paid %} — <a href="/planos" style="color:var(--accent-red);">torne-se Premium</a>{% endif %}
+            </p>
+            <div class="bg-showcase">
+                <div class="bg-showcase-inner {{ 'theme-' + user.theme }}{{ ' premium-bg' if user.is_paid else '' }}">
+                    {% if user.is_paid %}
+                    <span style="color:var(--ink-color); font-family: var(--font-heading, 'Playfair Display', serif); font-size: 1.1rem; opacity: 0.7; text-align: center; padding: 1rem;">&#127775; Fundo Premium Ativado</span>
+                    <div class="bg-showcase-label">Premium</div>
+                    {% else %}
+                    <span style="color:#888; font-family: 'Playfair Display', serif; font-size: 1rem; text-align: center; padding: 1rem;">🔒 Faça upgrade para Premium<br><span style="font-size:0.8rem;">e ative o fundo especial</span></span>
+                    <div class="bg-showcase-label">Bloqueado</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if purchasable_badges %}
         <div class="card">
             <h2>&#127891; Distintivos</h2>
@@ -255,7 +305,7 @@
                     <input type="radio" name="badge" value="{{ bid }}" {% if owned %}checked{% endif %} onchange="this.closest('form').submit();">
                     <label>{{ bemoji }} {{ bname }}</label>
                     {% else %}
-                    <a href="/planos" style="color:var(--accent-red);font-size:0.75rem;text-decoration:none;border:1px dashed var(--border-light);padding:0.3rem 0.6rem;border-radius:20px;">{{ bemoji }} {{ bname }} — R$3</a>
+                    <a href="/planos" style="color:var(--accent-red);font-size:0.75rem;text-decoration:none;border:1px dashed var(--border-light);padding:0.3rem 0.6rem;border-radius:20px;">{{ bemoji }} {{ bname }} — R$15</a>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -302,26 +352,6 @@
             <p style="color:#888; font-size:0.9rem;">
                 Próximo desbloqueio: <strong>{{ next_unlock[1] }}</strong> em {{ next_unlock[0] }} dias de streak
             </p>
-        </div>
-        {% endif %}
-
-        {% if user.theme and user.theme != 'newspaper' %}
-        <div class="card">
-            <h2>&#127912; Vitrine do Tema</h2>
-            <p style="font-size:0.85rem; color:#888; margin-bottom:0.5rem;">
-                Fundo premium exclusivo para assinantes{% if not user.is_paid %} — <a href="/planos" style="color:var(--accent-red);">torne-se Premium</a>{% endif %}
-            </p>
-            <div class="bg-showcase">
-                <div class="bg-showcase-inner {{ 'theme-' + user.theme }}{{ ' premium-bg' if user.is_paid else '' }}">
-                    {% if user.is_paid %}
-                    <span style="color:var(--ink-color); font-family: var(--font-heading, 'Playfair Display', serif); font-size: 1.1rem; opacity: 0.7; text-align: center; padding: 1rem;">&#127775; Fundo Premium Ativado</span>
-                    <div class="bg-showcase-label">Premium</div>
-                    {% else %}
-                    <span style="color:#888; font-family: 'Playfair Display', serif; font-size: 1rem; text-align: center; padding: 1rem;">🔒 Faça upgrade para Premium<br><span style="font-size:0.8rem;">e ative o fundo especial</span></span>
-                    <div class="bg-showcase-label">Bloqueado</div>
-                    {% endif %}
-                </div>
-            </div>
         </div>
         {% endif %}
 

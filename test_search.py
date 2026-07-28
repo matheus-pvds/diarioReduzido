@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
-from app import app, search_diary_by_date, fetch_daily_diary, extract_ajaxpro_handler
+from app import app, search_diary_by_date, fetch_daily_diary, extract_ajaxpro_handler, _parse_datatable_js
 from datetime import date, datetime, timezone, timedelta
 import requests, json
 from urllib.parse import urljoin
@@ -25,10 +25,10 @@ dt_end = datetime.combine(date(2026, 7, 24), datetime.max.time(), tzinfo=BRT)
 start_ms = int(dt_start.timestamp() * 1000)
 end_ms = int(dt_end.timestamp() * 1000)
 payload = {
-    'Page': 0, 'cdCaderno': 1, 'pagerLength': 50,
-    'dtSolicitadaInicio': f'/Date({start_ms})/',
-    'dtSolicitadaFim': f'/Date({end_ms})/',
-    'strPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
+    'Page': 0, 'cdCaderno': 1, 'Size': 10,
+    'dtDiario_menor': {'__type': 'System.DateTime', 'Year': 2026, 'Month': 7, 'Day': 24, 'Hour': 0, 'Minute': 0, 'Second': 0, 'Millisecond': 0},
+    'dtDiario_maior': {'__type': 'System.DateTime', 'Year': 2026, 'Month': 7, 'Day': 24, 'Hour': 23, 'Minute': 59, 'Second': 59, 'Millisecond': 999},
+    'dsPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
 }
 body = json.dumps(payload)
 headers = {
@@ -38,8 +38,8 @@ headers = {
 }
 ajax_resp = s.post(handler_url, data=body, headers=headers, timeout=30)
 print(f"AjaxPro status: {ajax_resp.status_code}")
-raw = ajax_resp.text[:800]
-print(f"Raw response: {raw}")
+raw = ajax_resp.text
+print(f"Raw response (first 300): {raw[:300]}")
 
 # Try to parse it
 text = raw
@@ -48,16 +48,14 @@ if text.startswith('//') or text.startswith('/*'):
     if text.startswith('null'):
         text = text[4:]
 text = text.strip().lstrip(';').strip()
-try:
-    data = json.loads(text)
-    if data.get('value') and data['value'].get('Rows'):
-        print(f"Rows found: {len(data['value']['Rows'])}")
-        for r in data['value']['Rows'][:2]:
-            print(f"  Edition #{r.get('NUEDICAO')} - {r.get('DTEDICAO')} - URL: {r.get('URLABRIRARQUIVO')}")
-    else:
-        print(f"Response structure: {list(data.keys()) if isinstance(data, dict) else type(data)}")
-except Exception as e:
-    print(f"Parse error: {e}")
+
+# Parse with production code
+rows = _parse_datatable_js(raw)
+print(f"DataTable: {len(rows)} rows")
+for r in rows[:2]:
+    print(f"  Edition #{r.get('NUEDICAO')} - {r.get('DTPUBLICACAO')} - URL: {r.get('URLABRIRARQUIVO') or r.get('NMARQUIVO','') + r.get('NMEXTENSAOARQUIVO','')}")
+
+# Test search function
 
 # Test search function
 print("\n=== Testing search_diary_by_date ===")

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@200..900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather&family=Lora&family=Spectral&family=Vollkorn&family=Bitter&family=Arvo&family=Roboto+Slab&family=Zilla+Slab&family=Source+Serif+4&family=EB+Garamond&family=Cormorant+Garamond&family=Libre+Baskerville&family=Cardo&family=Tinos&family=PT+Serif&family=Karla&family=Inter&family=Nunito&family=Rubik&family=Work+Sans&family=Open+Sans&family=Lato&family=Montserrat&family=Raleway&family=Ubuntu&family=Fira+Sans&family=DM+Sans&family=Manrope&family=Outfit&family=Sora&family=Archivo&family=Space+Grotesk&family=Josefin+Sans&family=Barlow&family=Mulish&family=Quicksand&family=Asap&family=Maven+Pro&family=Overpass&family=Epilogue&family=Urbanist&family=Exo+2&family=Oxanium&family=Rajdhani&family=Prompt&family=Figtree&family=Plus+Jakarta+Sans&family=Chivo&family=Libre+Franklin&family=Source+Sans+3&family=DM+Serif+Display&family=Unbounded&display=swap" rel="stylesheet">
+    <link href="{{ get_user_font_url(user) }}" rel="stylesheet">
     {% if not (user and user.is_paid) %}
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0000000000000000" crossorigin="anonymous"></script>
     {% endif %}
@@ -372,11 +372,12 @@
             </div>
 
             <div class="comments-section" id="comments">
-                <h3 onclick="toggleComments()">&#128172; Comentários ({{ post.comments|length }}) <span id="commentsToggle" style="font-size:0.8rem;">{% if user %}[esconder]{% else %}[mostrar]{% endif %}</span></h3>
+                <h3 onclick="toggleComments()">&#128172; Comentários ({{ post.comments|selectattr('parent_id','none')|list|length }}) <span id="commentsToggle" style="font-size:0.8rem;">{% if user %}[esconder]{% else %}[mostrar]{% endif %}</span></h3>
                 <div class="comments-wrap{% if not user %} collapsed{% endif %}" id="commentsWrap">
-                {% if post.comments %}
-                    {% for c in post.comments %}
-                    <div class="comment">
+                {% set top_comments = post.comments|selectattr('parent_id','none')|list %}
+                {% if top_comments %}
+                    {% for c in top_comments %}
+                    <div class="comment" id="comment-{{ c.id }}">
                         <div class="comment-head">
                             {% set c_title = get_user_title(c.author) %}
                             <strong>{{ c.author.username }}</strong>
@@ -384,8 +385,54 @@
                             {% if c_title %}<span class="badge-title">{{ c_title[1] }} {{ c_title[0] }}</span>{% endif %}
                             {% if c.author.font and c.author.font != 'default' %}<span style="font-size:0.65rem;color:#999;font-style:italic;">{{ get_font_name(c.author.font) }}</span>{% endif %}
                             &middot; {{ c.created_at.strftime('%d/%m/%Y %H:%M') if c.created_at else '' }}
+                            {% if c.author_id == user.id or user.username == 'admin' %}
+                            &middot; <a href="#" onclick="editComment({{ c.id }});return false;" style="font-size:0.65rem;color:var(--accent-red);text-decoration:underline;">editar</a>
+                            <form method="post" action="/comment/{{ c.id }}/delete" style="display:inline;" onsubmit="return confirm('Excluir comentário?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button type="submit" style="background:none;border:none;color:var(--accent-red);cursor:pointer;font-size:0.65rem;text-decoration:underline;padding:0;">excluir</button>
+                            </form>
+                            {% endif %}
+                            <a href="#" onclick="replyComment({{ c.id }});return false;" style="font-size:0.65rem;color:var(--accent-red);text-decoration:underline;margin-left:0.3rem;">responder</a>
                         </div>
-                        <div class="comment-body" {% if c.author.font and c.author.font != 'default' %}style="font-family:{{ get_font_css(c.author.font) }}"{% endif %}>{{ c.content }}</div>
+                        <div class="comment-body" id="comment-body-{{ c.id }}"
+                             {% if c.author.font and c.author.font != 'default' %}style="font-family:{{ get_font_css(c.author.font) }}"{% endif %}>{{ c.content }}</div>
+                        {% if c.edited_at %}<div style="font-size:0.6rem;color:#999;font-style:italic;">editado {{ c.edited_at.strftime('%d/%m/%Y %H:%M') if c.edited_at else '' }}</div>{% endif %}
+
+                        {% if c.replies %}
+                        <div style="margin-left:1.5rem;margin-top:0.5rem;border-left:2px solid var(--border-light);padding-left:0.8rem;">
+                        {% for reply in c.replies %}
+                            <div class="comment" style="border-left-color:var(--border-light);margin-bottom:0.5rem;background:transparent;" id="comment-{{ reply.id }}">
+                                <div class="comment-head">
+                                    {% set r_title = get_user_title(reply.author) %}
+                                    <strong>{{ reply.author.username }}</strong>
+                                    {% if reply.author.username == 'admin' %}<span class="admin-badge">&#128295; Editor</span>{% elif reply.author.badge and reply.author.badge in BADGES %}<span class="badge-title">{{ BADGES[reply.author.badge][1] }}</span>{% endif %}
+                                    {% if r_title %}<span class="badge-title">{{ r_title[1] }} {{ r_title[0] }}</span>{% endif %}
+                                    &middot; {{ reply.created_at.strftime('%d/%m/%Y %H:%M') if reply.created_at else '' }}
+                                    {% if reply.author_id == user.id or user.username == 'admin' %}
+                                    &middot; <a href="#" onclick="editComment({{ reply.id }});return false;" style="font-size:0.65rem;color:var(--accent-red);text-decoration:underline;">editar</a>
+                                    <form method="post" action="/comment/{{ reply.id }}/delete" style="display:inline;" onsubmit="return confirm('Excluir comentário?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                        <button type="submit" style="background:none;border:none;color:var(--accent-red);cursor:pointer;font-size:0.65rem;text-decoration:underline;padding:0;">excluir</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                                <div class="comment-body" id="comment-body-{{ reply.id }}" style="font-size:0.95rem;">{{ reply.content }}</div>
+                                {% if reply.edited_at %}<div style="font-size:0.6rem;color:#999;font-style:italic;">editado {{ reply.edited_at.strftime('%d/%m/%Y %H:%M') if reply.edited_at else '' }}</div>{% endif %}
+                            </div>
+                        {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div id="reply-form-{{ c.id }}" style="display:none;margin-top:0.5rem;">
+                            <form method="post" action="/comment/{{ c.id }}/reply">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <textarea name="content" placeholder="Responder..." maxlength="1000" style="width:100%;padding:0.5rem;font-size:0.85rem;font-family:var(--font-body);border:1px solid var(--border-light);background:var(--paper-color);color:var(--ink-color);resize:vertical;min-height:50px;"></textarea>
+                                <div style="display:flex;gap:0.3rem;margin-top:0.3rem;">
+                                    <button type="submit" style="background:var(--ink-color);color:var(--paper-color);border:none;padding:0.3rem 0.8rem;font-family:var(--font-heading);font-size:0.75rem;cursor:pointer;text-transform:uppercase;">Responder</button>
+                                    <button type="button" onclick="this.closest('#reply-form-{{ c.id }}').style.display='none'" style="background:none;border:1px solid var(--border-light);padding:0.3rem 0.8rem;font-size:0.75rem;cursor:pointer;color:#888;">Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                     {% endfor %}
                 {% else %}
@@ -500,6 +547,22 @@
             wrap.classList.add('collapsed');
             toggle.textContent = '[mostrar]';
         }
+    }
+    var csrfToken = '{{ csrf_token }}';
+    function editComment(id) {
+        var body = document.getElementById('comment-body-' + id);
+        var text = body.innerText.trim();
+        body.innerHTML = '<form method="post" action="/comment/' + id + '/edit" style="display:flex;gap:0.3rem;flex-wrap:wrap;">' +
+            '<input type="hidden" name="csrf_token" value="' + csrfToken + '">' +
+            '<textarea name="content" maxlength="1000" style="flex:1;min-width:200px;padding:0.5rem;font-size:0.85rem;font-family:var(--font-body);border:1px solid var(--border-light);background:var(--paper-color);color:var(--ink-color);resize:vertical;min-height:50px;">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>' +
+            '<div style="display:flex;gap:0.3rem;align-items:flex-end;">' +
+            '<button type="submit" style="background:var(--ink-color);color:var(--paper-color);border:none;padding:0.3rem 0.8rem;font-family:var(--font-heading);font-size:0.75rem;cursor:pointer;text-transform:uppercase;">Salvar</button>' +
+            '<button type="button" onclick="location.reload()" style="background:none;border:1px solid var(--border-light);padding:0.3rem 0.8rem;font-size:0.75rem;cursor:pointer;color:#888;">Cancelar</button>' +
+            '</div></form>';
+    }
+    function replyComment(id) {
+        var form = document.getElementById('reply-form-' + id);
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
     {% if user %}
     document.addEventListener('DOMContentLoaded', function() {

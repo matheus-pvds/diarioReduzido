@@ -8,6 +8,7 @@ os.environ['RECAPTCHA_SITE_KEY'] = ''
 os.environ['RECAPTCHA_SECRET_KEY'] = ''
 os.environ['GEMINI_API_KEY'] = 'dummy'
 os.environ['POSTGRES_URL'] = 'sqlite:///:memory:'
+os.environ['FLASK_DEBUG'] = 'true'
 
 from app import app, db, Post
 from selenium import webdriver

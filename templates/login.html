@@ -61,7 +61,7 @@
             <div class="form-group" style="display: flex; justify-content: center;">
                 <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"></div>
             </div>
-            {% else %}
+            {% elif captcha_question %}
             <div class="form-group">
                 <label for="captcha">Quanto é {{ captcha_question }}?</label>
                 <input type="text" id="captcha" name="captcha" required autocomplete="off" style="width: 100px; text-align: center;">
