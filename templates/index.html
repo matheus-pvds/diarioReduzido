@@ -328,7 +328,6 @@
                 {% if error %}
                 <p style="color: var(--accent-red); margin-top: 0.5rem; font-size: 0.9rem; font-style: italic; text-align: center;">{{ error }}</p>
                 {% endif %}
-            </div>
             {% endif %}
         </header>
         {% if post %}
@@ -346,6 +345,7 @@
                     <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn x" target="_blank" title="Compartilhar no X/Twitter"><i class="fa-brands fa-x-twitter"></i></a>
                     <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn facebook" target="_blank" title="Compartilhar no Facebook"><i class="fa-brands fa-facebook-f"></i></a>
                     <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url_root }}share/{{ post.id }}" class="share-btn whatsapp" target="_blank" title="Compartilhar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="https://www.instagram.com/" class="share-btn instagram" target="_blank" title="Compartilhar no Instagram"><i class="fa-brands fa-instagram"></i></a>
                     {% if user %}
                     <button class="fav-btn {% if post.id in user_fav_ids %}fav-active{% endif %}" data-post-id="{{ post.id }}" title="Favoritar"><i class="fa-solid fa-heart"></i></button>
                     {% endif %}
