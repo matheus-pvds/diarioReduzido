@@ -341,7 +341,7 @@
                 </div>
                 <div class="share-bar">
                     {% if user %}
-                    <button class="share-btn link" onclick="navigator.clipboard.writeText('{{ request.url_root }}share/{{ post.id }}');this.innerHTML='<i class=\"fa-solid fa-check\"></i> Copiado!';setTimeout(()=>this.innerHTML='<i class=\"fa-solid fa-link\"></i> Link',2000)" title="Copiar link"><i class="fa-solid fa-link"></i> Link</button>
+                    <button class="share-btn link" onclick="navigator.clipboard.writeText('{{ request.url_root }}share/{{ post.id }}');this.innerHTML='<i class=&quot;fa-solid fa-check&quot;></i> Copiado!';setTimeout(()=>this.innerHTML='<i class=&quot;fa-solid fa-link&quot;></i> Link',2000)" title="Copiar link"><i class="fa-solid fa-link"></i> Link</button>
                     {% endif %}
                     <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn x" target="_blank" title="Compartilhar no X/Twitter"><i class="fa-brands fa-x-twitter"></i></a>
                     <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn facebook" target="_blank" title="Compartilhar no Facebook"><i class="fa-brands fa-facebook-f"></i></a>
