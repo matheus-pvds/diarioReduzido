@@ -397,8 +397,9 @@ def migrate_columns():
                         default = f" DEFAULT {col.default.arg!r}" if not isinstance(col.default.arg, (list, dict)) else ''
                 try:
                     db.session.execute(db.text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type}{default}'))
+                    db.session.commit()
                 except Exception:
-                    pass
+                    db.session.rollback()
     db.session.commit()
 
 def generate_summary(text):
@@ -498,6 +499,15 @@ with app.app_context():
         db.session.add(AppConfig(key='is_checking', value='false'))
     db.session.commit()
     migrate_existing_posts()
+
+app._schema_checked = False
+
+@app.before_request
+def ensure_schema():
+    if not app._schema_checked:
+        with app.app_context():
+            migrate_columns()
+        app._schema_checked = True
 
 @app.after_request
 def add_security_headers(response):
