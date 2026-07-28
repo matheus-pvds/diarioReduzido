@@ -1326,11 +1326,14 @@ def dashboard():
     unlocked_titles = get_unlocked_titles(user)
     current_title_info = get_user_title(user)
     next_unlock = None
-    streak = user.streak_count or 0
-    for req_streak, info in sorted(STREAK_THEMES.items()):
-        if streak < req_streak:
-            next_unlock = (req_streak, info[1])
-            break
+    if user.username != 'admin':
+        streak = user.streak_count or 0
+        for req_streak, info in sorted(STREAK_THEMES.items()):
+            if streak < req_streak:
+                next_unlock = (req_streak, info[1])
+                break
+    else:
+        streak = 999
     cidadao_pct = min(100, int((streak / 90) * 100))
     purchasable_themes = get_purchasable_themes(user)
     purchasable_badges = get_purchasable_badges(user)
@@ -1703,6 +1706,8 @@ def update_badge():
     pioneer = AppConfig.query.filter_by(key='first_365_user_id').first()
     if pioneer and pioneer.value and str(user.id) == pioneer.value:
         owned_badges.add('pioneer')
+    if user.username == 'admin':
+        owned_badges.update(bid for bid, _, _, _ in get_purchasable_badges(user))
     if badge_id and badge_id not in owned_badges:
         return jsonify({'error': 'Distintivo não disponível.'}), 400
     user.badge = badge_id if badge_id else None
