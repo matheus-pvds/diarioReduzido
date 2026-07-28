@@ -298,15 +298,15 @@
                 <span>&#127891; {{ user.streak_count or 0 }} dias</span>
                 <span class="track"><span class="fill" style="width:{{ cidadao_pct }}%;"></span></span>
                 <span class="label">{{ cidadao_pct }}%</span>
-                {% if user.streak_freezes %}
-                <span>&#10052;&#65039; {{ user.streak_freezes }}</span>
+                {% if streak_freezes %}
+                <span>&#10052;&#65039; {{ streak_freezes }}</span>
                 {% endif %}
                 <a href="/planos">comprar congelamentos</a>
             </div>
             {% else %}
             <p class="masthead-description">A síntese matinal do Diário Oficial de Governador Valadares</p>
             {% endif %}
-            <div style="margin: 1rem 0; padding: 0.8rem; background: var(--comment-bg); border: 1px solid var(--border-light);">
+            {% if user %}
                 <form onsubmit="return searchByDate(this)" style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <label for="search_date" style="font-weight: bold; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Buscar por data:</label>
