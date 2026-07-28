@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@200..900&display=swap" rel="stylesheet">
     <link href="{{ get_user_font_url(user) }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% if not (user and user.is_paid) %}
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0000000000000000" crossorigin="anonymous"></script>
     {% endif %}
@@ -340,13 +341,13 @@
                 </div>
                 <div class="share-bar">
                     {% if user %}
-                    <button class="share-btn link" onclick="navigator.clipboard.writeText('{{ request.url_root }}share/{{ post.id }}');this.textContent='Copiado!';setTimeout(()=>this.innerHTML='&#128279; Link',2000)" title="Copiar link">&#128279; Link</button>
+                    <button class="share-btn link" onclick="navigator.clipboard.writeText('{{ request.url_root }}share/{{ post.id }}');this.innerHTML='<i class=\"fa-solid fa-check\"></i> Copiado!';setTimeout(()=>this.innerHTML='<i class=\"fa-solid fa-link\"></i> Link',2000)" title="Copiar link"><i class="fa-solid fa-link"></i> Link</button>
                     {% endif %}
-                    <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn x" target="_blank" title="Compartilhar no X/Twitter">&#120143; X</a>
-                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn facebook" target="_blank" title="Compartilhar no Facebook">f Facebook</a>
-                    <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url_root }}share/{{ post.id }}" class="share-btn whatsapp" target="_blank" title="Compartilhar no WhatsApp">&#128172; WhatsApp</a>
+                    <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn x" target="_blank" title="Compartilhar no X/Twitter"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn facebook" target="_blank" title="Compartilhar no Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url_root }}share/{{ post.id }}" class="share-btn whatsapp" target="_blank" title="Compartilhar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
                     {% if user %}
-                    <button class="fav-btn {% if post.id in user_fav_ids %}fav-active{% endif %}" data-post-id="{{ post.id }}" title="Favoritar">&hearts;</button>
+                    <button class="fav-btn {% if post.id in user_fav_ids %}fav-active{% endif %}" data-post-id="{{ post.id }}" title="Favoritar"><i class="fa-solid fa-heart"></i></button>
                     {% endif %}
                 </div>
             </div>
