@@ -51,6 +51,7 @@ class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    summary = db.Column(db.Text, nullable=True)
     commentary = db.Column(db.Text, nullable=True)
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     model = db.Column(db.String(100))
@@ -399,6 +400,44 @@ def migrate_columns():
                 except Exception:
                     pass
     db.session.commit()
+
+def generate_summary(text):
+    if not text:
+        return ''
+    clean = re.sub(r'[#*`>\[\]]+', '', text)
+    clean = re.sub(r'\n{2,}', '\n', clean).strip()
+    sentences = re.split(r'(?<=[.!?])\s+', clean)
+    key_sentences = []
+    for s in sentences:
+        s = s.strip()
+        if not s:
+            continue
+        if any(kw in s.lower() for kw in ['nomeou', 'exonerou', 'contratou', 'nomeação', 'exoneração',
+                                            'rescisão', 'editais', 'licitação', 'concorrência',
+                                            'tornar público', 'comissão', 'portaria', 'decreto',
+                                            'resultado', 'aprova', 'autoriza', 'designa',
+                                            'institui', 'regulamenta']):
+            key_sentences.append(s)
+            if len(key_sentences) >= 2:
+                break
+    if not key_sentences:
+        for s in sentences:
+            s = s.strip()
+            if any(c.isdigit() for c in s):
+                key_sentences.append(s)
+                if len(key_sentences) >= 2:
+                    break
+    if not key_sentences:
+        for s in sentences[:5]:
+            s = s.strip()
+            if len(s) > 20:
+                key_sentences.append(s)
+                break
+    result = ' '.join(key_sentences)
+    if len(result) > 350:
+        result = result[:347] + '...'
+    return result.strip()
+
 
 def parse_content(text):
     prefix = "TITULO:"
@@ -789,7 +828,8 @@ def perform_update_logic():
             raw_text, model_name = gemini.process_pdf(pdf_content)
             title, content, commentary = parse_content(raw_text)
             new_post = Post(
-                title=title, content=content, commentary=commentary, model=model_name, pdf_link=current_link
+                title=title, content=content, summary=generate_summary(content),
+                commentary=commentary, model=model_name, pdf_link=current_link
             )
             db.session.add(new_post)
             db.session.commit()
@@ -907,6 +947,82 @@ def search_diary_by_date(target_date):
         print(f"Erro ao buscar diário por data: {e}")
         return None
 
+# --- stdlib-only version (no requests/bs4) ---
+
+from http.cookiejar import CookieJar
+from urllib.request import Request, urlopen
+from html.parser import HTMLParser
+
+class _AjaxHandlerParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.handler = None
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script':
+            for name, val in attrs:
+                if name == 'src' and val and 'ajaxpro/diel_diel_lis,' in val:
+                    self.handler = val.split('?')[0]
+
+def _stdlib_get(url, headers=None):
+    hdrs = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    if headers:
+        hdrs.update(headers)
+    req = Request(url, headers=hdrs)
+    cj = CookieJar()
+    from urllib.request import HTTPCookieProcessor, build_opener
+    opener = build_opener(HTTPCookieProcessor(cj))
+    return opener.open(req).read().decode('utf-8'), cj
+
+def _stdlib_post(url, data, headers=None):
+    hdrs = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'text/plain; charset=utf-8'}
+    if headers:
+        hdrs.update(headers)
+    req = Request(url, data=data.encode('utf-8'), headers=hdrs, method='POST')
+    cj = CookieJar()
+    from urllib.request import HTTPCookieProcessor, build_opener
+    opener = build_opener(HTTPCookieProcessor(cj))
+    return opener.open(req).read().decode('utf-8')
+
+def search_diary_by_date_stdlib(target_date):
+    url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
+    base_pdf = 'https://www.valadares.mg.gov.br'
+    try:
+        html, _ = _stdlib_get(url)
+        parser = _AjaxHandlerParser()
+        parser.feed(html)
+        handler_path = parser.handler
+        if not handler_path:
+            raise Exception('AjaxPro handler not found')
+        handler_url = urljoin(base_pdf, handler_path)
+        dt_start = datetime.combine(target_date, datetime.min.time(), tzinfo=BRT)
+        dt_end = datetime.combine(target_date, datetime.max.time(), tzinfo=BRT)
+        payload = {
+            'Page': 0, 'cdCaderno': 1, 'Size': 10,
+            'dtDiario_menor': _ajaxpro_datetime(dt_start),
+            'dtDiario_maior': _ajaxpro_datetime(dt_end),
+            'dsPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
+        }
+        body = json.dumps(payload)
+        headers = {'X-AjaxPro-Method': 'GetDiario', 'Referer': url}
+        raw = _stdlib_post(handler_url, body, headers)
+        raw = raw.strip().rstrip(';').strip()
+        if raw.startswith('null'):
+            return None
+        rows = _parse_datatable_js(raw)
+        for row in rows:
+            pdf_url = row.get('URLABRIRARQUIVO', '')
+            if not pdf_url:
+                fname = row.get('NMARQUIVO', '') + row.get('NMEXTENSAOARQUIVO', '')
+                if fname:
+                    pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
+            if pdf_url:
+                return pdf_url
+        return None
+    except Exception as e:
+        print(f"Erro (stdlib): {e}")
+        return None
+
 @app.route('/')
 def index():
     user = get_current_user()
@@ -934,7 +1050,7 @@ def index():
     return render_template('index.html', post=post, user=user, should_check=should_check,
                            user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend(),
                            unlocked_themes=unlocked_themes, now=now, latest_posts=latest_posts,
-                           cidadao_pct=cidadao_pct)
+                           cidadao_pct=cidadao_pct, streak_freezes=user.streak_freezes or 0 if user else 0)
 
 @app.route('/api/should-check')
 def api_should_check():
@@ -1131,7 +1247,7 @@ def view_post(id):
     cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
     return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids,
                            unlocked_themes=unlocked_themes, now=now, latest_posts=latest_posts,
-                           cidadao_pct=cidadao_pct)
+                           cidadao_pct=cidadao_pct, streak_freezes=user.streak_freezes or 0 if user else 0)
 
 @app.route('/search-date', methods=['POST'])
 @login_required
@@ -1160,7 +1276,8 @@ def search_date():
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
         title, content, commentary = parse_content(raw_text)
         new_post = Post(
-            title=title, content=content, commentary=commentary, model=model_name, pdf_link=pdf_link
+            title=title, content=content, summary=generate_summary(content),
+            commentary=commentary, model=model_name, pdf_link=pdf_link
         )
         db.session.add(new_post)
         user.requests_made += 1

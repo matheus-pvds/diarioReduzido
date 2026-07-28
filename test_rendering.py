@@ -86,7 +86,10 @@ class TestAllRoutes(unittest.TestCase):
                 cls.driver.find_element(By.NAME, 'email').send_keys(EMAIL)
                 cls.driver.find_element(By.NAME, 'password').send_keys(PASS)
                 cls.driver.find_element(By.NAME, 'confirm_password').send_keys(PASS)
-                cls.driver.find_element(By.NAME, 'captcha').send_keys(solve_captcha(src))
+                try:
+                        cls.driver.find_element(By.NAME, 'captcha').send_keys(solve_captcha(src))
+                except:
+                        pass
                 cls.driver.find_element(By.XPATH, "//button[@type='submit']").click()
                 WebDriverWait(cls.driver, 10).until(
                         lambda d: '/dashboard' in d.current_url
@@ -129,13 +132,19 @@ class TestAllRoutes(unittest.TestCase):
         def assert_text(self, text):
                 self.assertIn(text, self.driver.page_source)
 
+        def _fill_captcha(self):
+                try:
+                        el = self.driver.find_element(By.NAME, 'captcha')
+                        el.send_keys(solve_captcha(self.driver.page_source))
+                except:
+                        pass
+
         def login(self):
                 self.go('/login')
                 time.sleep(0.3)
-                src = self.driver.page_source
                 self.find(By.NAME, 'username').send_keys(USER)
                 self.find(By.NAME, 'password').send_keys(PASS)
-                self.find(By.NAME, 'captcha').send_keys(solve_captcha(src))
+                self._fill_captcha()
                 self.driver.execute_script("document.querySelector('form').submit()")
                 self.wait.until(lambda d: '/dashboard' in d.current_url)
 
@@ -143,12 +152,11 @@ class TestAllRoutes(unittest.TestCase):
                 u = self.unique()
                 self.go('/register')
                 time.sleep(0.3)
-                src = self.driver.page_source
                 self.find(By.NAME, 'username').send_keys(f'u{u}')
                 self.find(By.NAME, 'email').send_keys(f'{u}@t.com')
                 self.find(By.NAME, 'password').send_keys(PASS)
                 self.find(By.NAME, 'confirm_password').send_keys(PASS)
-                self.find(By.NAME, 'captcha').send_keys(solve_captcha(src))
+                self._fill_captcha()
                 self.find(By.XPATH, "//button[@type='submit']").click()
                 self.wait.until(lambda d: '/dashboard' in d.current_url)
                 return f'u{u}'
@@ -156,12 +164,11 @@ class TestAllRoutes(unittest.TestCase):
         def register_new_user(self, user, email, pw):
                 self.go('/register')
                 time.sleep(0.3)
-                src = self.driver.page_source
                 self.find(By.NAME, 'username').send_keys(user)
                 self.find(By.NAME, 'email').send_keys(email)
                 self.find(By.NAME, 'password').send_keys(pw)
                 self.find(By.NAME, 'confirm_password').send_keys(pw)
-                self.find(By.NAME, 'captcha').send_keys(solve_captcha(src))
+                self._fill_captcha()
                 self.find(By.XPATH, "//button[@type='submit']").click()
 
         # ================================================================

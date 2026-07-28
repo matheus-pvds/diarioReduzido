@@ -126,19 +126,25 @@
         .fav-btn.fav-active { color: #e74c3c; }
         .fav-btn:hover { color: #e74c3c; }
 
-        .share-btn { background: none; border: 1px solid var(--border-light); cursor: pointer; font-size: 0.8rem; padding: 0.3rem 0.7rem; border-radius: 3px; color: var(--ink-color); font-family: var(--font-body); transition: all 0.2s; text-decoration: none; }
-        .share-btn:hover { background: var(--ink-color); color: var(--paper-color); }
+        .share-bar { display: flex; gap: 0.5rem; justify-content: center; margin: 0.8rem 0 1.2rem 0; flex-wrap: wrap; }
+        .share-btn { display: inline-flex; align-items: center; gap: 0.3rem; text-decoration: none; padding: 0.4rem 0.9rem; border-radius: 4px; font-size: 0.85rem; font-family: var(--font-body); transition: opacity 0.2s; font-weight: 600; border: none; cursor: pointer; }
+        .share-btn:hover { opacity: 0.8; }
+        .share-btn.x { background: #1DA1F2; color: #fff; }
+        .share-btn.facebook { background: #1877F2; color: #fff; }
+        .share-btn.whatsapp { background: #25D366; color: #fff; }
+        .share-btn.link { background: #888; color: #fff; }
+        .share-btn.instagram { background: linear-gradient(135deg, #f58529, #dd2a7b, #515bd4); color: #fff; }
 
         .streak-badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; background: var(--accent-red); color: #fff; padding: 0.15rem 0.5rem; border-radius: 10px; font-family: var(--font-heading); font-weight: 700; }
 
         .theme-selector { position: relative; display: inline-block; }
         .theme-selector select { appearance: none; background: var(--paper-color); border: 1px solid var(--border-light); padding: 0.3rem 1.5rem 0.3rem 0.5rem; font-family: var(--font-body); font-size: 0.75rem; color: var(--ink-color); cursor: pointer; border-radius: 3px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%23333' d='M0 2l4 4 4-4z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; }
 
-        .cidadaometro { margin: 1rem 0; padding: 0.8rem; background: var(--comment-bg); border: 1px solid var(--border-light); text-align: center; }
-        .cidadaometro h4 { font-family: var(--font-heading); font-size: 1rem; margin-bottom: 0.5rem; }
-        .cidadaometro .track { width: 100%; height: 12px; background: var(--border-light); border-radius: 6px; overflow: hidden; }
-        .cidadaometro .fill { height: 100%; background: linear-gradient(90deg, var(--accent-red), var(--gold, #c8962e)); border-radius: 6px; transition: width 0.5s; }
-        .cidadaometro .label { font-size: 0.8rem; color: #888; margin-top: 0.3rem; }
+        .cidadaometro { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0; font-size: 0.75rem; color: #888; flex-wrap: wrap; }
+        .cidadaometro .track { width: 60px; height: 5px; background: var(--border-light); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; }
+        .cidadaometro .fill { height: 100%; background: var(--accent-red); border-radius: 3px; transition: width 0.5s; }
+        .cidadaometro .label { display: inline; }
+        .cidadaometro a { color: var(--accent-red); text-decoration: underline; }
 
         .badge-title { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 8px; background: var(--accent-red); color: #fff; margin-left: 0.3rem; vertical-align: middle; }
 
@@ -286,28 +292,26 @@
                 </div>
             </div>
             <h1 class="masthead-title">O Diário Reduzido</h1>
-            <p class="masthead-description">A síntese matinal do Diário Oficial de Governador Valadares</p>
             {% if user %}
+            <p class="masthead-description" style="margin-bottom:0.3rem;">A síntese matinal do Diário Oficial de Governador Valadares</p>
             <div class="cidadaometro">
-                <h4>&#127891; Cidadanômetro</h4>
-                <div class="track">
-                    <div class="fill" style="width:{{ cidadao_pct }}%;"></div>
-                </div>
-                <div class="label">{{ user.streak_count or 0 }} dias consecutivos &mdash; {{ cidadao_pct }}% de {{ 90 }} dias para ser um Cidadão Exemplar
+                <span>&#127891; {{ user.streak_count or 0 }} dias</span>
+                <span class="track"><span class="fill" style="width:{{ cidadao_pct }}%;"></span></span>
+                <span class="label">{{ cidadao_pct }}%</span>
                 {% if user.streak_freezes %}
-                &bull; &#10052;&#65039; {{ user.streak_freezes }} congelamento{{ 's' if user.streak_freezes > 1 else '' }}
+                <span>&#10052;&#65039; {{ user.streak_freezes }}</span>
                 {% endif %}
-                </div>
-                <div style="margin-top:0.4rem; font-size:0.75rem;">
-                    <a href="/planos" style="color:var(--accent-red);">Comprar congelamentos &#10052;&#65039;</a>
-                </div>
+                <a href="/planos">comprar congelamentos</a>
             </div>
+            {% else %}
+            <p class="masthead-description">A síntese matinal do Diário Oficial de Governador Valadares</p>
+            {% endif %}
             <div style="margin: 1rem 0; padding: 0.8rem; background: var(--comment-bg); border: 1px solid var(--border-light);">
-                <form method="post" action="/search-date" style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                <form onsubmit="return searchByDate(this)" style="display: flex; align-items: center; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <label for="search_date" style="font-weight: bold; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Buscar por data:</label>
                     <input type="date" id="search_date" name="date" required style="padding: 0.4rem; font-family: var(--font-body); font-size: 0.9rem; border: 1px solid var(--border-light); background: white;">
-                    <button type="submit" style="background: var(--ink-color); color: white; border: none; padding: 0.4rem 1.2rem; font-family: var(--font-heading); font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Buscar</button>
+                    <button type="submit" id="searchBtn" style="background: var(--ink-color); color: white; border: none; padding: 0.4rem 1.2rem; font-family: var(--font-heading); font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;">Buscar</button>
                 </form>
                 <div style="margin-top: 0.4rem; font-size: 0.8rem; color: #888;">
                     {% if user.is_paid %}
@@ -333,22 +337,33 @@
                 <div class="article-meta">
                     <span><strong>Por:</strong> Inteligência Artificial</span>
                     <span><strong>Fonte:</strong> Portal da Transparência</span>
+                </div>
+                <div class="share-bar">
                     {% if user %}
-                    <span>
-                        <button class="fav-btn {% if post.id in user_fav_ids %}fav-active{% endif %}" data-post-id="{{ post.id }}" id="favBtn" title="Favoritar">&hearts;</button>
-                    </span>
+                    <button class="share-btn link" onclick="navigator.clipboard.writeText('{{ request.url_root }}share/{{ post.id }}');this.textContent='Copiado!';setTimeout(()=>this.innerHTML='&#128279; Link',2000)" title="Copiar link">&#128279; Link</button>
                     {% endif %}
-                    <span>
-                        <a href="/share/{{ post.id }}" class="share-btn" target="_blank" title="Link para compartilhar">&#128279;</a>
-                        <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn" target="_blank" title="Compartilhar no X/Twitter">&#120143;</a>
-                        <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn" target="_blank" title="Compartilhar no Facebook">f</a>
-                        <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url_root }}share/{{ post.id }}" class="share-btn" target="_blank" title="Compartilhar no WhatsApp">&#128172;</a>
-                    </span>
+                    <a href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.url_root }}share/{{ post.id }}" class="share-btn x" target="_blank" title="Compartilhar no X/Twitter">&#120143; X</a>
+                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url_root }}share/{{ post.id }}" class="share-btn facebook" target="_blank" title="Compartilhar no Facebook">f Facebook</a>
+                    <a href="https://wa.me/?text={{ post.title|urlencode }}%20{{ request.url_root }}share/{{ post.id }}" class="share-btn whatsapp" target="_blank" title="Compartilhar no WhatsApp">&#128172; WhatsApp</a>
+                    {% if user %}
+                    <button class="fav-btn {% if post.id in user_fav_ids %}fav-active{% endif %}" data-post-id="{{ post.id }}" title="Favoritar">&hearts;</button>
+                    {% endif %}
                 </div>
             </div>
             <div class="article-content" id="rendered-content">
                 {% if post.content and post.content.strip() %}
+                {% if user and user.is_paid %}
                 {{ post.content|safe }}
+                {% elif post.summary %}
+                <div style="font-size:1rem;line-height:1.6;">
+                {{ post.summary }}
+                </div>
+                <p style="margin-top:1.5rem;font-size:0.85rem;color:#888;font-style:italic;text-align:center;border-top:1px dashed var(--border-light);padding-top:1rem;">
+                    Esta é uma prévia resumida. <a href="/planos" style="color:var(--accent-red);">Torne-se Premium</a> para ler a edição completa.
+                </p>
+                {% else %}
+                {{ post.content|safe }}
+                {% endif %}
                 {% else %}
                 <p style="color:#888;font-style:italic;">Conteúdo temporariamente indisponível.</p>
                 {% if user %}
@@ -640,16 +655,15 @@
             }).catch(function() { failProgress('Erro'); });
         }
 
-        var favBtn = document.getElementById('favBtn');
-        if (favBtn) {
-            favBtn.addEventListener('click', function() {
+        document.querySelectorAll('.fav-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
                 var postId = this.getAttribute('data-post-id');
                 fetch('/favorite/' + postId, { method: 'POST' }).then(function(r) { return r.json(); }).then(function(d) {
                     if (d.error) { alert(d.error); return; }
-                    favBtn.classList.toggle('fav-active', d.favorited);
-                }).catch(function() {});
+                    btn.classList.toggle('fav-active', d.favorited);
+                });
             });
-        }
+        });
 
         {% if user %}
         window.reprocessPost = function() {
@@ -673,6 +687,49 @@
         };
         {% endif %}
     });
+
+    function showSearchLoading() {
+        var overlay = document.getElementById('loadingOverlay');
+        var progressFill = document.getElementById('progressFill');
+        var progressText = document.getElementById('progressText');
+        overlay.querySelector('.loading-text').textContent = 'Buscando edição...';
+        overlay.querySelector('.loading-sub').textContent = 'Aguarde enquanto localizamos o diário';
+        overlay.classList.add('active');
+        var pct = 0;
+        var interval = setInterval(function() {
+            if (pct < 85) { pct += Math.random() * 4 + 1; if (pct > 85) pct = 85; }
+            progressFill.style.width = pct + '%';
+            progressText.textContent = Math.round(pct) + '%';
+        }, 800);
+        return interval;
+    }
+
+    function searchByDate(form) {
+        var btn = document.getElementById('searchBtn');
+        btn.disabled = true;
+        btn.textContent = 'Buscando...';
+        var interval = showSearchLoading();
+        var formData = new FormData(form);
+        fetch('/search-date', { method: 'POST', body: formData })
+            .then(function(r) {
+                clearInterval(interval);
+                document.getElementById('loadingOverlay').classList.remove('active');
+                if (r.redirected) { window.location.href = r.url; return; }
+                return r.text();
+            })
+            .then(function(html) {
+                if (!html) return;
+                document.open(); document.write(html); document.close();
+            })
+            .catch(function() {
+                clearInterval(interval);
+                document.getElementById('loadingOverlay').classList.remove('active');
+                btn.disabled = false;
+                btn.textContent = 'Buscar';
+                alert('Erro de conexão. Tente novamente.');
+            });
+        return false;
+    }
     </script>
 </body>
 </html>
