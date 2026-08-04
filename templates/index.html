@@ -500,12 +500,8 @@
         <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px dashed var(--border-light); display: flex; gap: 2rem; align-items: stretch; justify-content: center; flex-wrap: wrap;">
             <div style="text-align: center; flex: 0 1 auto; padding: 0.5rem;">
                 <p style="font-family: var(--font-heading); font-size: 0.9rem; color: #666; margin-bottom: 0.8rem;">Gostou?<br><span style="font-size: 0.75rem;">Contribua com um PIX</span></p>
-                <div style="width: 120px; height: 120px; border: 2px dashed #aaa; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 8px;">
-                    <div style="text-align: center; color: #666;">
-                        <div style="font-size: 2.5rem; line-height: 1;">&#9749;</div>
-                    </div>
-                </div>
-                <div style="font-family: monospace; font-size: 0.6rem; word-break: break-all; background: var(--comment-bg); padding: 0.3rem; max-width: 220px; margin: 0 auto; border: 1px solid #ddd; color: #555;" id="pixKey">sua-chave-pix@exemplo.com</div>
+                <img src="{{ PIX_QR_IMAGE }}" alt="QR Code PIX" style="width: 140px; height: 140px; border: 1px solid #ddd; margin: 0 auto 0.5rem; display: block; background: #fff; border-radius: 8px;">
+                <div style="font-family: monospace; font-size: 0.6rem; word-break: break-all; background: var(--comment-bg); padding: 0.3rem; max-width: 220px; margin: 0 auto; border: 1px solid #ddd; color: #555;" id="pixKey">{{ PIX_PAYLOAD }}</div>
                 <button onclick="copyDonationPix()" style="margin-top: 0.3rem; background: none; border: 1px solid #aaa; padding: 0.2rem 0.7rem; font-family: var(--font-body); font-size: 0.7rem; cursor: pointer; color: #555;">Copiar chave</button>
             </div>
             {% if not user %}

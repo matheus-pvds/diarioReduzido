@@ -132,6 +132,9 @@ BADGES = {
 
 BADGE_PRICE = 5.00
 
+PIX_PAYLOAD = '00020126580014br.gov.bcb.pix01363cfb8787-f766-49e9-b2d5-dc510a584ed45204000053039865802BR5924Matheus Pereira Venancio6009Sao Paulo62240520daqr1092695570836912630451DB'
+PIX_QR_IMAGE = '/static/img/qrCode.png'
+
 COMBOS = {
     'combo_starter': {
         'name': 'Combo Iniciante',
@@ -535,7 +538,7 @@ def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.google.com https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self'; frame-src 'self' https://www.google.com"
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.google.com https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline'; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self'; frame-src 'self' https://www.google.com"
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
     return response
@@ -1793,7 +1796,7 @@ def update_font():
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
 
-app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS, get_all_font_urls=get_all_font_urls, get_user_font_url=get_user_font_url, PLAN_VALUES=PLAN_VALUES, PLAN_DAYS=PLAN_DAYS, BADGE_PRICE=BADGE_PRICE)
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS, get_all_font_urls=get_all_font_urls, get_user_font_url=get_user_font_url, PLAN_VALUES=PLAN_VALUES, PLAN_DAYS=PLAN_DAYS, BADGE_PRICE=BADGE_PRICE, PIX_PAYLOAD=PIX_PAYLOAD, PIX_QR_IMAGE=PIX_QR_IMAGE)
 
 @app.route('/favicon.ico')
 def favicon():
