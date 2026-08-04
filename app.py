@@ -919,7 +919,7 @@ def extract_ajaxpro_handler(html):
 def perform_update_logic():
     now = datetime.now(BRT)
     print(f"[{now.strftime('%H:%M:%S')}] Verificando novo diário...")
-    last_post = Post.query.order_by(Post.id.desc()).first()
+    last_post = Post.query.order_by(Post.publication_date.desc().nullslast()).first()
     last_link = last_post.pdf_link if last_post else ""
     current_link, pub_date = fetch_daily_diary()
     if current_link and current_link != last_link:

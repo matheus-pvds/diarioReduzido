@@ -164,8 +164,8 @@
         .comment-form button:hover { background: var(--accent-red); }
 
         @keyframes spin { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
-        @keyframes pedal { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        @keyframes pedal { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
+        @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
         @keyframes roadMove { from { transform: translateX(0); } to { transform: translateX(-20px); } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
@@ -174,36 +174,39 @@
         .loading-text { color: #fff; font-family: var(--font-heading); font-size: 1.8rem; margin-bottom: 1rem; letter-spacing: 1px; }
         .loading-sub { color: #aaa; font-family: var(--font-body); font-size: 1rem; font-style: italic; margin-bottom: 1.5rem; }
 
-        .bike-scene { width: 280px; height: 200px; position: relative; margin-bottom: 1.5rem; }
+        .bike-scene { width: 280px; height: 200px; position: relative; margin-bottom: 1.5rem; --boost: 1; }
         .road { position: absolute; bottom: 18px; left: 10px; right: 10px; height: 3px; background: #444; border-radius: 2px; overflow: hidden; }
-        .road::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(90deg, #fff 0, #fff 8px, transparent 8px, transparent 18px); animation: roadMove 0.6s linear infinite; }
+        .road::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(90deg, #fff 0, #fff 8px, transparent 8px, transparent 18px); animation: roadMove calc(0.6s / var(--boost, 1)) linear infinite; }
 
         .wheel-b { position: absolute; bottom: 18px; width: 44px; height: 44px; border: 3px solid #ddd; border-radius: 50%; }
         .wheel-b.back { left: 20px; }
         .wheel-b.front { right: 20px; }
-        .wheel-b::after { content: ''; position: absolute; top: 2px; left: 50%; width: 2px; height: calc(100% - 4px); background: #999; transform: translateX(-50%); animation: spin 0.8s linear infinite; }
-        .wheel-b::before { content: ''; position: absolute; top: 50%; left: 2px; width: calc(100% - 4px); height: 2px; background: #999; top: 50%; transform: translateY(-50%); animation: spin 0.8s linear infinite; }
+        .wheel-b::after { content: ''; position: absolute; top: 2px; left: 50%; width: 2px; height: calc(100% - 4px); background: #999; transform: translateX(-50%); animation: spin calc(0.8s / var(--boost, 1)) linear infinite; }
+        .wheel-b::before { content: ''; position: absolute; top: 50%; left: 2px; width: calc(100% - 4px); height: 2px; background: #999; top: 50%; transform: translateY(-50%); animation: spin calc(0.8s / var(--boost, 1)) linear infinite; }
 
-        .bike-frame { position: absolute; bottom: 40px; left: 42px; width: 156px; height: 1px; }
-        .bike-frame::before { content: ''; position: absolute; bottom: 40px; left: 42px; width: 60px; height: 40px; border: 2px solid #ddd; border-top: none; border-right: none; transform: rotate(-10deg); transform-origin: bottom left; }
-        .bike-frame::after { content: ''; position: absolute; bottom: 40px; right: 42px; width: 60px; height: 40px; border: 2px solid #ddd; border-top: none; border-left: none; transform: rotate(10deg); transform-origin: bottom right; }
+        .bike-frame { position: absolute; bottom: 62px; left: 42px; width: 196px; height: 2px; background: #ddd; border-radius: 1px; }
+        .tube-stay { position: absolute; bottom: 40px; left: 140px; width: 2px; height: 100px; background: #ddd; transform: rotate(-77deg); transform-origin: bottom center; }
+        .tube-down { position: absolute; bottom: 40px; left: 140px; width: 2px; height: 101px; background: #ddd; transform: rotate(76deg); transform-origin: bottom center; }
+        .fork { position: absolute; bottom: 40px; left: 237px; width: 2px; height: 42px; background: #ddd; }
 
-        .seat { position: absolute; left: 50%; bottom: 100px; width: 20px; height: 4px; background: #ddd; border-radius: 2px; transform: translateX(-50%); }
-        .seat::after { content: ''; position: absolute; top: 4px; left: 50%; width: 2px; height: 16px; background: #999; transform: translateX(-50%); }
+        .seat { position: absolute; left: 50%; bottom: 85px; width: 22px; height: 4px; background: #ddd; border-radius: 2px; transform: translateX(-50%); }
+        .seat::after { content: ''; position: absolute; top: 4px; left: 50%; width: 2px; height: 23px; background: #999; transform: translateX(-50%); }
 
-        .handlebars { position: absolute; right: 38px; bottom: 78px; width: 24px; height: 24px; border: 2px solid #ddd; border-radius: 50%; border-bottom: none; border-left: none; transform: rotate(45deg); }
-        .handlebars::after { content: ''; position: absolute; bottom: -24px; left: 50%; width: 2px; height: 20px; background: #999; transform: translateX(-50%); }
+        .handlebars { position: absolute; left: 224px; bottom: 80px; width: 28px; height: 4px; background: #ddd; border-radius: 2px; }
 
-        .rider { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); animation: bounce 0.4s ease-in-out infinite; }
+        .rider { position: absolute; left: 50%; bottom: 85px; transform: translateX(-50%); animation: bounce calc(0.4s / var(--boost, 1)) ease-in-out infinite; }
         .rider-head { width: 22px; height: 22px; background: #f5d6c6; border-radius: 50%; margin: 0 auto; position: relative; }
         .rider-hat { position: absolute; top: -6px; left: -2px; width: 28px; height: 8px; background: #8B4513; border-radius: 2px; }
         .rider-hat::after { content: ''; position: absolute; top: -6px; left: 4px; width: 18px; height: 8px; background: #8B4513; border-radius: 2px 2px 0 0; }
         .rider-body { width: 14px; height: 20px; background: #c0392b; margin: 2px auto 0; border-radius: 3px 3px 0 0; position: relative; }
+        .rider-leg { position: absolute; width: 20px; height: 3px; background: #c0392b; border-radius: 2px; }
+        .rider-leg.front { left: 1px; bottom: -26px; transform: rotate(-45deg); transform-origin: top left; }
+        .rider-leg.back { right: 1px; bottom: -26px; transform: rotate(45deg); transform-origin: top right; }
         .rider-arm { position: absolute; top: 2px; width: 20px; height: 3px; background: #f5d6c6; border-radius: 2px; }
         .rider-arm.left { left: -16px; transform: rotate(30deg); transform-origin: right center; }
         .rider-arm.right { right: -16px; transform: rotate(-30deg); transform-origin: left center; }
 
-        .pedals { position: absolute; bottom: 58px; left: 50%; width: 20px; height: 20px; transform: translateX(-50%); animation: pedal 0.8s linear infinite; }
+        .pedals { position: absolute; bottom: 30px; left: 50%; width: 20px; height: 20px; transform: translateX(-50%); animation: pedal calc(0.8s / var(--boost, 1)) linear infinite; }
         .pedal-arm { position: absolute; top: 50%; left: 50%; width: 24px; height: 2px; background: #ddd; transform-origin: center; }
         .pedal-arm:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg); }
         .pedal-arm:nth-child(2) { transform: translate(-50%, -50%) rotate(180deg); }
@@ -215,6 +218,10 @@
         .progress-track { width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #e8a317, #f5d6c6); border-radius: 4px; transition: width 0.3s; }
         .progress-label { color: #aaa; font-size: 0.85rem; margin-top: 0.4rem; display: flex; justify-content: space-between; font-family: var(--font-body); }
+
+        .pedal-btn { margin-top: 1rem; background: #e8a317; color: #111; border: none; padding: 0.5rem 1.4rem; font-family: var(--font-body); font-size: 0.9rem; font-weight: 700; border-radius: 20px; cursor: pointer; transition: transform 0.1s, background 0.2s, color 0.2s; }
+        .pedal-btn:active { transform: scale(0.94); }
+        .pedal-btn.boost-on { background: #c0392b; color: #fff; }
 
         .coffee-link { display: inline-block; margin-top: 0.5rem; font-size: 0.85rem; }
         .coffee-link a { color: var(--accent-red); text-decoration: underline; }
@@ -228,6 +235,9 @@
             <div class="wheel-b back"></div>
             <div class="wheel-b front"></div>
             <div class="bike-frame"></div>
+            <div class="tube-stay"></div>
+            <div class="tube-down"></div>
+            <div class="fork"></div>
             <div class="seat"></div>
             <div class="handlebars"></div>
             <div class="rider">
@@ -235,6 +245,8 @@
                     <div class="rider-hat"></div>
                 </div>
                 <div class="rider-body">
+                    <div class="rider-leg front"></div>
+                    <div class="rider-leg back"></div>
                     <div class="rider-arm left"></div>
                     <div class="rider-arm right"></div>
                 </div>
@@ -246,6 +258,7 @@
             <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
             <div class="progress-label"><span>Carregando...</span><span id="progressText">0%</span></div>
         </div>
+        <button type="button" class="pedal-btn" id="pedalBtn">Pedalar mais forte</button>
     </div>
 
     {% if not (user and user.is_paid) %}
@@ -590,61 +603,104 @@
         if (t) t.textContent = '[esconder]';
     });
     {% endif %}
-    document.addEventListener('DOMContentLoaded', function() {
+    var ETA_KEY = 'diario_eta_ms';
+    var pedalBoostActive = false;
+
+    function loadEta() {
+        try {
+            var h = JSON.parse(localStorage.getItem(ETA_KEY) || '[]');
+            if (h.length) {
+                var sum = 0;
+                for (var i = 0; i < h.length; i++) sum += h[i];
+                return sum / h.length;
+            }
+        } catch (e) {}
+        return 35000;
+    }
+
+    function recordDuration(ms) {
+        try {
+            var h = JSON.parse(localStorage.getItem(ETA_KEY) || '[]');
+            h.push(Math.max(ms, 3000));
+            if (h.length > 5) h = h.slice(-5);
+            localStorage.setItem(ETA_KEY, JSON.stringify(h));
+        } catch (e) {}
+    }
+
+    function makeProgress(label, sub) {
         var overlay = document.getElementById('loadingOverlay');
-        var progressFill = document.getElementById('progressFill');
-        var progressText = document.getElementById('progressText');
-        var simProgress = 0;
-        var simInterval = null;
-
-        function showProgress() {
-            overlay.classList.add('active');
-            simProgress = 0;
-            progressFill.style.width = '0%';
-            progressText.textContent = '0%';
-            if (simInterval) clearInterval(simInterval);
-            simInterval = setInterval(function() {
-                if (simProgress < 85) {
-                    simProgress += Math.random() * 3 + 0.5;
-                    if (simProgress > 85) simProgress = 85;
-                    progressFill.style.width = simProgress + '%';
-                    progressText.textContent = Math.round(simProgress) + '%';
-                }
-            }, 600);
+        var fill = document.getElementById('progressFill');
+        var text = document.getElementById('progressText');
+        overlay.querySelector('.loading-text').textContent = label;
+        overlay.querySelector('.loading-sub').textContent = sub;
+        var start = Date.now();
+        var eta = loadEta();
+        var lastPct = 0;
+        overlay.classList.add('active');
+        fill.style.width = '0%';
+        fill.style.background = 'linear-gradient(90deg, #e8a317, #f5d6c6)';
+        text.textContent = '0%';
+        var interval = setInterval(function() {
+            var elapsed = Date.now() - start;
+            var t = elapsed / eta;
+            var target;
+            if (t < 1) {
+                target = 98 * Math.pow(t, 1.5);
+            } else {
+                target = 98 + (1 - Math.exp(-(t - 1) * 3));
+            }
+            target = Math.min(target, 99);
+            var minInc = pedalBoostActive ? 0.9 : 0.35;
+            if (target < lastPct + minInc) target = Math.min(lastPct + minInc, 99);
+            lastPct = target;
+            fill.style.width = lastPct + '%';
+            text.textContent = Math.round(lastPct) + '%';
+        }, 300);
+        function stop(record) {
+            clearInterval(interval);
+            if (record) recordDuration(Date.now() - start);
         }
-
-        function completeProgress() {
-            if (simInterval) clearInterval(simInterval);
-            simProgress = 100;
-            progressFill.style.width = '100%';
-            progressText.textContent = '100%';
-            setTimeout(function() {
+        return {
+            done: function() {
+                stop(true);
+                fill.style.width = '100%';
+                text.textContent = '100%';
+                setTimeout(function() { overlay.classList.remove('active'); location.reload(); }, 600);
+            },
+            doneNoReload: function() {
+                stop(true);
+                fill.style.width = '100%';
+                text.textContent = '100%';
+                setTimeout(function() { overlay.classList.remove('active'); }, 500);
+            },
+            hide: function() {
+                stop(false);
                 overlay.classList.remove('active');
-                location.reload();
-            }, 600);
-        }
+            },
+            fail: function(msg) {
+                stop(false);
+                fill.style.width = '100%';
+                fill.style.background = '#c0392b';
+                text.textContent = msg || 'Erro';
+                setTimeout(function() {
+                    overlay.classList.remove('active');
+                    fill.style.background = 'linear-gradient(90deg, #e8a317, #f5d6c6)';
+                }, 2000);
+            }
+        };
+    }
 
-        function failProgress(msg) {
-            if (simInterval) clearInterval(simInterval);
-            progressFill.style.width = '100%';
-            progressFill.style.background = '#c0392b';
-            progressText.textContent = msg || 'Erro';
-            setTimeout(function() {
-                overlay.classList.remove('active');
-                progressFill.style.background = 'linear-gradient(90deg, #e8a317, #f5d6c6)';
-            }, 2000);
-        }
-
+    document.addEventListener('DOMContentLoaded', function() {
         window.manualRefresh = function() {
             var btn = document.getElementById('refreshBtn');
             btn.style.opacity = '0.3';
             btn.style.pointerEvents = 'none';
-            showProgress();
+            var p = makeProgress('Buscando o diário de hoje...', 'O jornaleiro está a caminho das gráficas');
             fetch('/api/perform-check?force=1').then(function(r) { return r.json(); }).then(function(data) {
                 if (data.status === 'success') {
-                    completeProgress();
+                    p.done();
                 } else if (data.status === 'no_change') {
-                    failProgress('Nenhum diário novo');
+                    p.fail('Nenhum diário novo');
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'auto';
                 } else if (data.status === 'already_checking') {
@@ -652,17 +708,17 @@
                         fetch('/api/status').then(function(r) { return r.json(); }).then(function(s) {
                             if (!s.checking) {
                                 clearInterval(pollInterval);
-                                completeProgress();
+                                p.done();
                             }
                         });
                     }, 2000);
                 } else {
-                    failProgress('Erro');
+                    p.fail('Erro');
                     btn.style.opacity = '0.5';
                     btn.style.pointerEvents = 'auto';
                 }
             }).catch(function() {
-                failProgress('Erro');
+                p.fail('Erro');
                 btn.style.opacity = '0.5';
                 btn.style.pointerEvents = 'auto';
             });
@@ -670,26 +726,47 @@
 
         var shouldCheck = {{ 'true' if should_check else 'false' }};
         if (shouldCheck) {
-            showProgress();
+            var p = makeProgress('Buscando o diário de hoje...', 'O jornaleiro está a caminho das gráficas');
             fetch('/api/perform-check').then(function(r) { return r.json(); }).then(function(data) {
                 if (data.status === 'success' || data.status === 'no_change') {
-                    completeProgress();
+                    p.done();
                 } else if (data.status === 'not_needed') {
-                    if (simInterval) clearInterval(simInterval);
-                    overlay.classList.remove('active');
+                    p.hide();
                 } else if (data.status === 'already_checking') {
                     var pollInterval = setInterval(function() {
                         fetch('/api/status').then(function(r) { return r.json(); }).then(function(s) {
                             if (!s.checking) {
                                 clearInterval(pollInterval);
-                                completeProgress();
+                                p.done();
                             }
                         });
                     }, 2000);
                 } else {
-                    failProgress('Erro');
+                    p.fail('Erro');
                 }
-            }).catch(function() { failProgress('Erro'); });
+            }).catch(function() { p.fail('Erro'); });
+        }
+
+        var pedalBtn = document.getElementById('pedalBtn');
+        var bikeScene = document.querySelector('.bike-scene');
+        if (pedalBtn && bikeScene) {
+            var boostFactor = 1;
+            var boostTimer = null;
+            pedalBtn.addEventListener('click', function() {
+                boostFactor = Math.min(boostFactor + 0.75, 5);
+                bikeScene.style.setProperty('--boost', boostFactor);
+                pedalBoostActive = true;
+                pedalBtn.classList.add('boost-on');
+                pedalBtn.textContent = 'Pedalando!';
+                if (boostTimer) clearTimeout(boostTimer);
+                boostTimer = setTimeout(function() {
+                    boostFactor = 1;
+                    bikeScene.style.setProperty('--boost', 1);
+                    pedalBoostActive = false;
+                    pedalBtn.classList.remove('boost-on');
+                    pedalBtn.textContent = 'Pedalar mais forte';
+                }, 2000);
+            });
         }
 
         document.querySelectorAll('.fav-btn').forEach(function(btn) {
@@ -725,42 +802,24 @@
         {% endif %}
     });
 
-    function showSearchLoading() {
-        var overlay = document.getElementById('loadingOverlay');
-        var progressFill = document.getElementById('progressFill');
-        var progressText = document.getElementById('progressText');
-        overlay.querySelector('.loading-text').textContent = 'Buscando edição...';
-        overlay.querySelector('.loading-sub').textContent = 'Aguarde enquanto localizamos o diário';
-        overlay.classList.add('active');
-        var pct = 0;
-        var interval = setInterval(function() {
-            if (pct < 85) { pct += Math.random() * 4 + 1; if (pct > 85) pct = 85; }
-            progressFill.style.width = pct + '%';
-            progressText.textContent = Math.round(pct) + '%';
-        }, 800);
-        return interval;
-    }
-
     function searchByDate(form) {
         var btn = document.getElementById('searchBtn');
         btn.disabled = true;
         btn.textContent = 'Buscando...';
-        var interval = showSearchLoading();
+        var p = makeProgress('Buscando edição...', 'Aguarde enquanto localizamos o diário');
         var formData = new FormData(form);
         fetch('/search-date', { method: 'POST', body: formData })
             .then(function(r) {
-                clearInterval(interval);
-                document.getElementById('loadingOverlay').classList.remove('active');
-                if (r.redirected) { window.location.href = r.url; return; }
+                if (r.redirected) { p.doneNoReload(); window.location.href = r.url; return; }
                 return r.text();
             })
             .then(function(html) {
                 if (!html) return;
+                p.doneNoReload();
                 document.open(); document.write(html); document.close();
             })
             .catch(function() {
-                clearInterval(interval);
-                document.getElementById('loadingOverlay').classList.remove('active');
+                p.fail('Erro');
                 btn.disabled = false;
                 btn.textContent = 'Buscar';
                 alert('Erro de conexão. Tente novamente.');
