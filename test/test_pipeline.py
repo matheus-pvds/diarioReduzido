@@ -19,17 +19,17 @@ class TestDiaryPipeline(unittest.TestCase):
         db.drop_all()
         self.ctx.pop()
 
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_stage1_scraper(self, mock_get):
         """Test if the scraper correctly identifies the PDF link from HTML."""
         mock_html = '<html><body><a class="btn-primary arquivo-pdf" href="/test.pdf">Download</a></body></html>'
         mock_get.return_value.status_code = 200
         mock_get.return_value.text = mock_html
         
-        link = fetch_daily_diary()
+        link, _ = fetch_daily_diary()
         self.assertEqual(link, 'https://www.valadares.mg.gov.br/test.pdf')
 
-    @patch('processor.genai.Client')
+    @patch('google.genai.Client')
     def test_stage2_gemini_processing(self, mock_genai):
         """Test the Gemini client logic and model fallback."""
         # Mock the Gemini API response
@@ -56,7 +56,7 @@ class TestDiaryPipeline(unittest.TestCase):
     def test_stage3_full_pipeline_logic(self, mock_process, mock_get, mock_fetch):
         """Test the integration: Detect change -> Process -> Save to DB."""
         # Setup mocks
-        mock_fetch.return_value = "https://example.com/new_diary.pdf"
+        mock_fetch.return_value = ("https://example.com/new_diary.pdf", None)
         mock_get.return_value.content = b"pdf content"
         mock_process.return_value = ("Sumário Final", "gemini-test-model")
         

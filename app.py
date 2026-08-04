@@ -1035,7 +1035,7 @@ def search_diary_by_date(target_date):
                     raise Exception(f"AjaxPro error: {err.get('Message', err_part)}")
                 except json.JSONDecodeError:
                     pass
-            return None
+            return None, None
         rows = _parse_datatable_js(raw)
         for row in rows:
             pdf_url = row.get('URLABRIRARQUIVO', '')
@@ -1044,11 +1044,11 @@ def search_diary_by_date(target_date):
                 if fname:
                     pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
             if pdf_url:
-                return pdf_url
-        return None
+                return pdf_url, _extract_date_from_url(pdf_url)
+        return None, None
     except Exception as e:
         print(f"Erro ao buscar diário por data: {e}")
-        return None
+        return None, None
 
 # --- stdlib-only version (no requests/bs4) ---
 
@@ -1111,7 +1111,7 @@ def search_diary_by_date_stdlib(target_date):
         raw = _stdlib_post(handler_url, body, headers)
         raw = raw.strip().rstrip(';').strip()
         if raw.startswith('null'):
-            return None
+            return None, None
         rows = _parse_datatable_js(raw)
         for row in rows:
             pdf_url = row.get('URLABRIRARQUIVO', '')
@@ -1120,11 +1120,11 @@ def search_diary_by_date_stdlib(target_date):
                 if fname:
                     pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
             if pdf_url:
-                return pdf_url
-        return None
+                return pdf_url, _extract_date_from_url(pdf_url)
+        return None, None
     except Exception as e:
         print(f"Erro (stdlib): {e}")
-        return None
+        return None, None
 
 @app.route('/')
 def index():
