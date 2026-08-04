@@ -105,7 +105,7 @@ class TestAllRoutes(unittest.TestCase):
                                         password=generate_password_hash(PASS),
                                         email_verified=True)
                                 db.session.add(u)
-                        p = db.session.get(Post, 1)
+                        p = Post.query.filter_by(pdf_link='https://example.com/test.pdf').first()
                         if not p:
                                 from datetime import date
                                 db.session.add(Post(

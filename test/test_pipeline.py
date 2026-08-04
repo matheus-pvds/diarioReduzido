@@ -83,5 +83,41 @@ class TestDiaryPipeline(unittest.TestCase):
         saved_post = Post.query.filter_by(title="Test").first()
         self.assertEqual(saved_post.content, "Content")
 
+    def test_unique_pdf_link_constraint(self):
+        """Same pdf_link must not be insertable twice."""
+        from sqlalchemy.exc import IntegrityError
+        db.session.add(Post(title="A", content="C1", model="m", pdf_link="same.pdf"))
+        db.session.commit()
+        db.session.add(Post(title="B", content="C2", model="m", pdf_link="same.pdf"))
+        with self.assertRaises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+        self.assertEqual(Post.query.count(), 1)
+
+    def test_dedupe_posts_by_link(self):
+        """Dedupe keeps one post per pdf_link (legacy schema without unique)."""
+        from app import dedupe_posts_by_link
+        from sqlalchemy import text
+        with db.engine.begin() as conn:
+            conn.execute(text('ALTER TABLE post RENAME TO post_legacy'))
+            conn.execute(text('''CREATE TABLE post (
+                id INTEGER NOT NULL PRIMARY KEY,
+                title VARCHAR(200) NOT NULL,
+                content TEXT NOT NULL,
+                summary TEXT,
+                commentary TEXT,
+                date DATETIME,
+                publication_date DATE,
+                model VARCHAR(100),
+                pdf_link VARCHAR(500)
+            )'''))
+            conn.execute(text('DROP TABLE post_legacy'))
+        db.session.add(Post(title="A", content="C1", model="m", pdf_link="dup.pdf"))
+        db.session.add(Post(title="B", content="C2", model="m", pdf_link="dup.pdf"))
+        db.session.commit()
+        deleted = dedupe_posts_by_link()
+        self.assertEqual(deleted, 1)
+        self.assertEqual(Post.query.count(), 1)
+
 if __name__ == '__main__':
     unittest.main()

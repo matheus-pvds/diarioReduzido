@@ -75,7 +75,7 @@ class Post(db.Model):
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
     publication_date = db.Column(db.Date, nullable=True)
     model = db.Column(db.String(100))
-    pdf_link = db.Column(db.String(500))
+    pdf_link = db.Column(db.String(500), unique=True)
     comments = db.relationship('Comment', backref='post', lazy=True, cascade='all, delete-orphan',
                                order_by='Comment.created_at')
 
@@ -365,6 +365,32 @@ COLUMN_RENAMES = {
     'favorite': [('post_id_old', 'post_id')],
 }
 
+def dedupe_posts_by_link():
+    from sqlalchemy import func
+    rows = (db.session.query(Post.pdf_link, func.count())
+            .filter(Post.pdf_link.isnot(None))
+            .group_by(Post.pdf_link)
+            .having(func.count() > 1).all())
+    deleted = 0
+    for link, _ in rows:
+        posts = Post.query.filter_by(pdf_link=link).order_by(Post.id).all()
+        keep = next((p for p in posts if p.content), posts[0])
+        for p in posts:
+            if p.id == keep.id:
+                continue
+            try:
+                Favorite.query.filter_by(post_id=p.id).update({'post_id': keep.id}, synchronize_session=False)
+                Comment.query.filter_by(post_id=p.id).update({'post_id': keep.id}, synchronize_session=False)
+                db.session.delete(p)
+                deleted += 1
+            except Exception as e:
+                db.session.rollback()
+                print(f'Dedupe: erro ao remover post {p.id}: {e}')
+    if deleted:
+        db.session.commit()
+        print(f'Dedupe: removidos {deleted} posts duplicados por pdf_link')
+    return deleted
+
 def ensure_constraints():
     from sqlalchemy import inspect
     inspector = inspect(db.engine)
@@ -530,6 +556,7 @@ def migrate_existing_posts():
 with app.app_context():
     db.create_all()
     migrate_columns()
+    dedupe_posts_by_link()
     ensure_constraints()
     admin_pass = os.getenv('ADMIN_PASSWORD', 'admin')
     admin_user = User.query.filter_by(username='admin').first()
@@ -920,9 +947,8 @@ def perform_update_logic():
     now = datetime.now(BRT)
     print(f"[{now.strftime('%H:%M:%S')}] Verificando novo diário...")
     last_post = Post.query.order_by(Post.publication_date.desc().nullslast()).first()
-    last_link = last_post.pdf_link if last_post else ""
     current_link, pub_date = fetch_daily_diary()
-    if current_link and current_link != last_link:
+    if current_link and not Post.query.filter_by(pdf_link=current_link).first():
         print(f"Novo diário encontrado: {current_link}")
         try:
             pdf_content = requests.get(current_link, timeout=30).content
@@ -1381,6 +1407,9 @@ def search_date():
         return render_template('index.html', post=Post.query.order_by(Post.publication_date.desc().nullslast()).first(), user=user,
             error=f'Nenhum diário encontrado para {target_date.strftime("%d/%m/%Y")}.', user_fav_ids=fav_ids,
             unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+    existing = Post.query.filter_by(pdf_link=pdf_link).first()
+    if existing:
+        return redirect(url_for('view_post', id=existing.id))
     try:
         pdf_content = requests.get(pdf_link, timeout=60).content
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
