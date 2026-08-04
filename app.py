@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for, abort
 from flask_sqlalchemy import SQLAlchemy
 from processor import GeminiClient
-from asaas import create_customer, create_payment, process_webhook
+from asaas import create_customer, create_payment, process_webhook, tokenize_credit_card
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import json, os, requests, bs4, secrets, random, smtplib
@@ -17,10 +17,21 @@ BRT = timezone(timedelta(hours=-3))
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('POSTGRES_URL', 'sqlite:///local.db').replace("postgres://", "postgresql://")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres'):
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 2,
+        'max_overflow': 4,
+        'pool_timeout': 20,
+        'connect_args': {'connect_timeout': 10},
+    }
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('VERCEL', 'false').lower() == 'true'
 db = SQLAlchemy(app)
+
+RUN_POST_MIGRATION = os.getenv('RUN_POST_MIGRATION', 'false').lower() == 'true'
 
 # --- SMTP config ---
 SMTP_HOST = os.getenv('SMTP_HOST', '')
@@ -34,10 +45,18 @@ def send_email(to, subject, body):
         print(f'SMTP não configurado. Email não enviado para {to}: {subject}')
         return False
     try:
+        recipients = to if isinstance(to, (list, tuple)) else [to]
+        recipients = [r for r in recipients if r]
+        if not recipients:
+            return False
         msg = MIMEText(body, 'plain', 'utf-8')
         msg['Subject'] = subject
         msg['From'] = SMTP_FROM
-        msg['To'] = to
+        if len(recipients) == 1:
+            msg['To'] = recipients[0]
+        else:
+            msg['To'] = SMTP_FROM
+            msg['Bcc'] = ', '.join(recipients)
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
@@ -524,10 +543,11 @@ with app.app_context():
     if not AppConfig.query.filter_by(key='is_checking').first():
         db.session.add(AppConfig(key='is_checking', value='false'))
     db.session.commit()
-    try:
-        migrate_existing_posts()
-    except Exception:
-        pass
+    if RUN_POST_MIGRATION:
+        try:
+            migrate_existing_posts()
+        except Exception:
+            pass
 
 app._schema_checked = False
 
@@ -536,10 +556,11 @@ def ensure_schema():
     if not app._schema_checked:
         with app.app_context():
             migrate_columns()
-            try:
-                migrate_existing_posts()
-            except Exception:
-                pass
+            if RUN_POST_MIGRATION:
+                try:
+                    migrate_existing_posts()
+                except Exception:
+                    pass
         app._schema_checked = True
 
 @app.after_request
@@ -569,15 +590,27 @@ def login_required(f):
 def get_current_user():
     return db.session.get(User, session.get('user_id')) if session.get('user_id') else None
 
+CHECK_STALE_MINUTES = 15
+
 def set_checking(value):
     c = AppConfig.query.filter_by(key='is_checking').first()
     if c:
-        c.value = 'true' if value else 'false'
+        c.value = datetime.now(BRT).isoformat() if value else 'false'
         db.session.commit()
 
 def is_checking():
     c = AppConfig.query.filter_by(key='is_checking').first()
-    return c and c.value == 'true'
+    if not c or c.value == 'false':
+        return False
+    try:
+        ts = datetime.fromisoformat(c.value)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=BRT)
+        if (datetime.now(BRT) - ts) > timedelta(minutes=CHECK_STALE_MINUTES):
+            return False
+    except ValueError:
+        return False
+    return True
 
 def get_client_ip():
     forwarded = request.headers.get('X-Forwarded-For', '')
@@ -892,7 +925,7 @@ def perform_update_logic():
     if current_link and current_link != last_link:
         print(f"Novo diário encontrado: {current_link}")
         try:
-            pdf_content = requests.get(current_link, timeout=60).content
+            pdf_content = requests.get(current_link, timeout=30).content
             gemini = GeminiClient()
             raw_text, model_name = gemini.process_pdf(pdf_content)
             title, content, commentary, ai_pub_date = parse_content(raw_text)
@@ -905,16 +938,16 @@ def perform_update_logic():
             db.session.commit()
 
             try:
-                paid_users = User.query.filter_by(is_paid=True).all()
-                for pu in paid_users:
-                    if pu.email and pu.email_verified:
-                        send_email(pu.email, 'Novo Diário Reduzido disponível!',
-                            f'Olá {pu.username},\n\n'
-                            f'Uma nova edição do Diário Reduzido já está disponível:\n'
-                            f'"{title}"\n\n'
-                            f'Acesse: https://odiarioreduzidogv.vercel.app/\n\n'
-                            f'---\n'
-                            f'Para cancelar o recebimento, entre em contato conosco.')
+                paid_emails = [pu.email for pu in User.query.filter_by(is_paid=True).all()
+                               if pu.email and pu.email_verified]
+                if paid_emails:
+                    send_email(paid_emails, 'Novo Diário Reduzido disponível!',
+                        f'Olá,\n\n'
+                        f'Uma nova edição do Diário Reduzido já está disponível:\n'
+                        f'"{title}"\n\n'
+                        f'Acesse: https://odiarioreduzidogv.vercel.app/\n\n'
+                        f'---\n'
+                        f'Para cancelar o recebimento, entre em contato conosco.')
             except Exception as e:
                 print(f'Erro ao enviar notificações: {e}')
 
@@ -1466,18 +1499,62 @@ def create_checkout():
     if billing_type not in ('card', 'pix', 'boleto'):
         return jsonify({'error': 'Forma de pagamento inválida.'}), 400
     value, description = plans_map[plan]
+    card_data = None
+    if billing_type == 'card':
+        card_holder = request.form.get('card_holder_name', '').strip()
+        card_number = re.sub(r'\D', '', request.form.get('card_number', ''))
+        card_expiry = re.sub(r'\D', '', request.form.get('card_expiry', ''))
+        card_cvv = re.sub(r'\D', '', request.form.get('card_cvv', ''))
+        postal_code = re.sub(r'\D', '', request.form.get('postal_code', ''))
+        address_number = request.form.get('address_number', '').strip()
+        phone = re.sub(r'\D', '', request.form.get('phone', ''))
+        if not all([card_holder, card_number, card_expiry, card_cvv, postal_code, address_number, phone]):
+            return jsonify({'error': 'Dados do cartão incompletos.'}), 400
+        if len(card_number) < 13 or len(card_expiry) != 4 or len(card_cvv) < 3:
+            return jsonify({'error': 'Dados do cartão inválidos.'}), 400
+        card_data = {
+            'creditCard': {
+                'holderName': card_holder,
+                'number': card_number,
+                'expiryMonth': card_expiry[:2],
+                'expiryYear': f'20{card_expiry[2:]}',
+                'ccv': card_cvv,
+            },
+            'holderInfo': {
+                'name': name,
+                'email': email,
+                'cpfCnpj': re.sub(r'\D', '', cpf),
+                'postalCode': postal_code,
+                'addressNumber': address_number,
+                'phone': phone,
+            },
+        }
     try:
         customer_id = create_customer(name, email, cpf)
         external_ref = f'{user.id}_{plan}'
         base_url = request.host_url.rstrip('/')
         callback_url = f'{base_url}/pagamento/sucesso'
-        payment = create_payment(customer_id, value, description, external_ref, billing_type=billing_type, callback_url=callback_url)
+        remote_ip = request.remote_addr or ''
+        credit_card_token = None
+        if billing_type == 'card':
+            token_resp = tokenize_credit_card(customer_id, card_data['creditCard'], card_data['holderInfo'], remote_ip)
+            credit_card_token = token_resp.get('creditCardToken', '')
+            if not credit_card_token:
+                return jsonify({'error': 'Não foi possível validar o cartão. Verifique os dados e tente novamente.'}), 400
+        payment = create_payment(customer_id, value, description, external_ref, billing_type=billing_type, callback_url=callback_url, credit_card_token=credit_card_token, remote_ip=remote_ip)
         if billing_type == 'pix':
             return jsonify({
                 'method': 'pix',
                 'payment_id': payment.get('id', ''),
                 'encoded_image': payment.get('encodedImage', payment.get('pixQrCode', '')),
                 'payload': payment.get('payload', payment.get('pixCopiaECola', '')),
+                'value': value,
+            })
+        if billing_type == 'card':
+            return jsonify({
+                'method': 'card',
+                'payment_id': payment.get('id', ''),
+                'status': payment.get('status', 'PENDING'),
                 'value': value,
             })
         url = payment.get('invoiceUrl', '') or payment.get('bankSlipUrl', '')

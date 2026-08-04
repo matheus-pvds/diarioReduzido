@@ -36,7 +36,26 @@ def find_customer_by_email(email):
 
 BILLING_TYPES = {'card': 'CREDIT_CARD', 'pix': 'PIX', 'boleto': 'BOLETO'}
 
-def create_payment(customer_id, value, description, external_ref, billing_type='card', due_days=3, installments=1, callback_url=''):
+TOKENIZE_ENDPOINTS = ['/creditCard/tokenizeCreditCard', '/creditCard/tokenize']
+
+def tokenize_credit_card(customer_id, credit_card, holder_info, remote_ip=''):
+    payload = {
+        'customer': customer_id,
+        'creditCard': credit_card,
+        'creditCardHolderInfo': holder_info,
+        'remoteIp': remote_ip,
+    }
+    last_error = None
+    for endpoint in TOKENIZE_ENDPOINTS:
+        resp = requests.post(f'{BASE_URL}{endpoint}', json=payload, headers=HEADERS, timeout=60)
+        if resp.status_code in (200, 201):
+            return resp.json()
+        last_error = resp.text
+        if resp.status_code not in (404, 405):
+            break
+    raise Exception(f'Erro Asaas ao tokenizar cartão: {last_error}')
+
+def create_payment(customer_id, value, description, external_ref, billing_type='card', due_days=3, installments=1, callback_url='', credit_card_token=None, remote_ip=''):
     due_date = (datetime.now() + timedelta(days=due_days)).strftime('%Y-%m-%d')
     asaas_type = BILLING_TYPES.get(billing_type, 'CREDIT_CARD')
     payload = {
@@ -49,10 +68,15 @@ def create_payment(customer_id, value, description, external_ref, billing_type='
     }
     if callback_url:
         payload['callbackUrl'] = callback_url
+    if asaas_type == 'CREDIT_CARD':
+        if credit_card_token:
+            payload['creditCardToken'] = credit_card_token
+        if remote_ip:
+            payload['remoteIp'] = remote_ip
     if installments > 1 and asaas_type == 'CREDIT_CARD':
         payload['installmentCount'] = installments
         payload['installmentValue'] = round(value / installments, 2)
-    resp = requests.post(f'{BASE_URL}/payments', json=payload, headers=HEADERS, timeout=15)
+    resp = requests.post(f'{BASE_URL}/payments', json=payload, headers=HEADERS, timeout=60)
     data = resp.json()
     if resp.status_code in (200, 201):
         return data

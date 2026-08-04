@@ -7,7 +7,6 @@ import os
 
 warnings.filterwarnings('ignore', message='.*_UnionGenericAlias.*', category=DeprecationWarning)
 
-from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,6 +16,10 @@ class GeminiClient:
         self.api_key = os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY deve estar configurada no arquivo .env")
+        # Imported lazily to keep cold starts fast on serverless for routes that don't use Gemini.
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=DeprecationWarning)
+            from google import genai
         self.client = genai.Client(api_key=self.api_key)
 
     def process_pdf(self, pdf_data, prompt=None):
@@ -61,13 +64,21 @@ class GeminiClient:
         )
         
         # 2. Wait for processing
+        wait_deadline = time.time() + 180
         while uploaded_file.state.name == "PROCESSING":
+            if time.time() > wait_deadline:
+                print("Tempo de espera do processamento excedido.")
+                break
             print("Processando arquivo, aguardando...")
             time.sleep(1) # Reduced sleep for faster response
             uploaded_file = self.client.files.get(name=uploaded_file.name)
 
         last_error = None
+        budget = time.time() + 200
         for model_name in gemini_models:
+            if time.time() > budget:
+                print("Orçamento de tempo esgotado, interrompendo tentativas.")
+                break
             try:
                 clean_name = model_name.split('/')[-1]
                 print(f"Tentando com o modelo: {clean_name}")
