@@ -23,10 +23,12 @@ class GeminiClient:
                 "2. Um resumo detalhado e objetivo das principais decisões, nomeações e editais\n"
                 "3. Uma seção '### Conclusões da IA' ao final com um comentário editorial conectando as publicações ao contexto municipal e político atual\n\n"
                 "Formato obrigatório:\n"
-                "TITULO: <título impactante>\n\n"
+                "TITULO: <título impactante>\n"
+                "DATA PUBLICACAO: DD/MM/AAAA\n\n"
                 "<resumo detalhado em markdown>\n\n"
                 "### Conclusões da IA\n"
                 "<comentário editorial>\n\n"
+                "Importante: a DATA PUBLICACAO deve ser extraída do próprio documento (cabeçalho, rodapé ou metadados visíveis no PDF). Se não encontrar, use a data mais recente mencionada no conteúdo.\n"
                 "Importante: quantifique e conte todos os atos repetitivos (por exemplo, se houver rescisões de contrato ou nomeações, conte e informe o número total exato de servidores afetados em vez de usar termos vagos como 'muitos' ou 'vários'). "
                 "VOCÊ DEVE RESPONDER APENAS EM PORTUGUÊS DO BRASIL. NÃO USE INGLÊS EM NENHUMA HIPÓTESE."
             )

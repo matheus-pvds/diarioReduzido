@@ -271,7 +271,8 @@
                     {% if user and user.streak_count %}
                     <span class="streak-badge">&#128293; {{ user.streak_count }} dias</span>
                     {% endif %}
-                    {{ post.date.strftime('%d/%m/%Y') if post else "AGUARDANDO" }}
+                    {{ (post.publication_date or post.date).strftime('%d/%m/%Y') if post else "AGUARDANDO" }}
+                    <button id="refreshBtn" onclick="manualRefresh()" style="background:none;border:none;cursor:pointer;font-size:1rem;vertical-align:middle;margin-left:0.3rem;color:var(--ink-color);opacity:0.5;transition:opacity 0.2s;" title="Verificar novo diário" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">&#8635;</button>
                 </div>
                 <div class="widget">
                     {% if user %}
@@ -631,6 +632,39 @@
                 progressFill.style.background = 'linear-gradient(90deg, #e8a317, #f5d6c6)';
             }, 2000);
         }
+
+        window.manualRefresh = function() {
+            var btn = document.getElementById('refreshBtn');
+            btn.style.opacity = '0.3';
+            btn.style.pointerEvents = 'none';
+            showProgress();
+            fetch('/api/perform-check?force=1').then(function(r) { return r.json(); }).then(function(data) {
+                if (data.status === 'success') {
+                    completeProgress();
+                } else if (data.status === 'no_change') {
+                    failProgress('Nenhum diário novo');
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'auto';
+                } else if (data.status === 'already_checking') {
+                    var pollInterval = setInterval(function() {
+                        fetch('/api/status').then(function(r) { return r.json(); }).then(function(s) {
+                            if (!s.checking) {
+                                clearInterval(pollInterval);
+                                completeProgress();
+                            }
+                        });
+                    }, 2000);
+                } else {
+                    failProgress('Erro');
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'auto';
+                }
+            }).catch(function() {
+                failProgress('Erro');
+                btn.style.opacity = '0.5';
+                btn.style.pointerEvents = 'auto';
+            });
+        };
 
         var shouldCheck = {{ 'true' if should_check else 'false' }};
         if (shouldCheck) {

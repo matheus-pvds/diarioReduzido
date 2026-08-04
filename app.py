@@ -5,7 +5,7 @@ from asaas import create_customer, create_payment, process_webhook
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 import json, os, requests, bs4, secrets, random, smtplib
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone
 import re, markdown, time, traceback
 from urllib.parse import urljoin
 from email.mime.text import MIMEText
@@ -54,6 +54,7 @@ class Post(db.Model):
     summary = db.Column(db.Text, nullable=True)
     commentary = db.Column(db.Text, nullable=True)
     date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
+    publication_date = db.Column(db.Date, nullable=True)
     model = db.Column(db.String(100))
     pdf_link = db.Column(db.String(500))
     comments = db.relationship('Comment', backref='post', lazy=True, cascade='all, delete-orphan',
@@ -442,7 +443,9 @@ def generate_summary(text):
 
 def parse_content(text):
     prefix = "TITULO:"
+    date_prefix = "DATA PUBLICACAO:"
     title = "Edição do Diário Oficial"
+    pub_date = None
     content = text.strip()
     for line in text.splitlines():
         stripped = line.strip()
@@ -450,18 +453,27 @@ def parse_content(text):
             t = stripped[len(prefix):].strip()
             if t:
                 title = t
-            content = text.replace(line, '', 1).strip()
-            break
+            content = content.replace(line, '', 1).strip()
+        elif stripped.upper().startswith(date_prefix):
+            raw = stripped[len(date_prefix):].strip()
+            try:
+                pub_date = datetime.strptime(raw, '%d/%m/%Y').date()
+            except ValueError:
+                try:
+                    pub_date = datetime.strptime(raw, '%d-%m-%Y').date()
+                except ValueError:
+                    pass
+            content = content.replace(line, '', 1).strip()
     commentary = ''
     marker = '### Conclusões da IA'
     idx = content.find(marker)
     if idx != -1:
         commentary = content[idx + len(marker):].strip()
         content = content[:idx].strip()
-    return title, content, commentary
+    return title, content, commentary, pub_date
 
 def parse_title(text):
-    title, content, _ = parse_content(text)
+    title, content, _, _ = parse_content(text)
     return title, content
 
 def migrate_existing_posts():
@@ -471,7 +483,7 @@ def migrate_existing_posts():
         raw = post.content
         if not raw:
             continue
-        title, content, commentary = parse_content(raw)
+        title, content, commentary, _ = parse_content(raw)
         if commentary and not post.commentary:
             post.commentary = commentary
             post.content = content
@@ -817,11 +829,22 @@ def fetch_daily_diary():
         soup = bs4.BeautifulSoup(resp.text, "html.parser")
         link = soup.select_one('a.btn-primary.arquivo-pdf')
         if link and link.get('href'):
-            return urljoin('https://www.valadares.mg.gov.br', link['href'])
-        return None
+            pdf_url = urljoin('https://www.valadares.mg.gov.br', link['href'])
+            pub_date = _extract_date_from_url(pdf_url)
+            return pdf_url, pub_date
+        return None, None
     except Exception as e:
         print(f"Erro ao buscar diário: {e}")
-        return None
+        return None, None
+
+def _extract_date_from_url(url):
+    m = re.search(r'(\d{2})-(\d{2})-(\d{4})', url)
+    if m:
+        try:
+            return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+        except ValueError:
+            pass
+    return None
 
 def extract_ajaxpro_handler(html):
     soup = bs4.BeautifulSoup(html, 'html.parser')
@@ -836,17 +859,18 @@ def perform_update_logic():
     print(f"[{now.strftime('%H:%M:%S')}] Verificando novo diário...")
     last_post = Post.query.order_by(Post.id.desc()).first()
     last_link = last_post.pdf_link if last_post else ""
-    current_link = fetch_daily_diary()
+    current_link, pub_date = fetch_daily_diary()
     if current_link and current_link != last_link:
         print(f"Novo diário encontrado: {current_link}")
         try:
             pdf_content = requests.get(current_link, timeout=60).content
             gemini = GeminiClient()
             raw_text, model_name = gemini.process_pdf(pdf_content)
-            title, content, commentary = parse_content(raw_text)
+            title, content, commentary, ai_pub_date = parse_content(raw_text)
             new_post = Post(
                 title=title, content=content, summary=generate_summary(content),
-                commentary=commentary, model=model_name, pdf_link=current_link
+                commentary=commentary, model=model_name, pdf_link=current_link,
+                publication_date=ai_pub_date or pub_date
             )
             db.session.add(new_post)
             db.session.commit()
@@ -1044,7 +1068,7 @@ def search_diary_by_date_stdlib(target_date):
 def index():
     user = get_current_user()
     check_premium_expiry(user)
-    post = Post.query.order_by(Post.date.desc()).first()
+    post = Post.query.order_by(Post.publication_date.desc().nullslast()).first()
     if post:
         if post.content:
             post.content = render_md(post.content)
@@ -1062,7 +1086,7 @@ def index():
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     now = datetime.now(BRT)
     unlocked_themes = get_unlocked_themes(user)
-    latest_posts = Post.query.order_by(Post.date.desc()).limit(5).all() if user else []
+    latest_posts = Post.query.order_by(Post.publication_date.desc().nullslast()).limit(5).all() if user else []
     cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
     return render_template('index.html', post=post, user=user, should_check=should_check,
                            user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend(),
@@ -1083,12 +1107,13 @@ def api_should_check():
 
 @app.route('/api/perform-check')
 def api_perform_check():
+    force = request.args.get('force') == '1'
     if is_checking():
         return jsonify({'status': 'already_checking'})
     last_check = AppConfig.query.filter_by(key='last_checked_timestamp').first()
     now = datetime.now(BRT)
     interval_min = get_check_interval()
-    if last_check:
+    if not force and last_check:
         last_time = datetime.fromisoformat(last_check.value)
         if last_time.tzinfo is None:
             last_time = last_time.replace(tzinfo=BRT)
@@ -1244,7 +1269,7 @@ def reset(token):
 @login_required
 def archive():
     user = get_current_user()
-    posts = Post.query.order_by(Post.date.desc()).all()
+    posts = Post.query.order_by(Post.publication_date.desc().nullslast()).all()
     fav_post_ids = {f.post_id for f in user.favorites} if user else set()
     return render_template('archive.html', posts=posts, user=user, fav_post_ids=fav_post_ids)
 
@@ -1260,7 +1285,7 @@ def view_post(id):
             post.commentary = render_md(post.commentary)
     now = datetime.now(BRT)
     unlocked_themes = get_unlocked_themes(user)
-    latest_posts = Post.query.order_by(Post.date.desc()).limit(5).all() if user else []
+    latest_posts = Post.query.order_by(Post.publication_date.desc().nullslast()).limit(5).all() if user else []
     cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
     return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids,
                            unlocked_themes=unlocked_themes, now=now, latest_posts=latest_posts,
@@ -1275,27 +1300,28 @@ def search_date():
     date_str = request.form.get('date')
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     if not date_str:
-        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user, error='Selecione uma data.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+        return render_template('index.html', post=Post.query.order_by(Post.publication_date.desc().nullslast()).first(), user=user, error='Selecione uma data.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     try:
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user, error='Data inválida.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+        return render_template('index.html', post=Post.query.order_by(Post.publication_date.desc().nullslast()).first(), user=user, error='Data inválida.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     if not user.is_paid and user.requests_made >= 1:
-        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user,
+        return render_template('index.html', post=Post.query.order_by(Post.publication_date.desc().nullslast()).first(), user=user,
             error='Limite atingido. Faça uma doação para pedidos ilimitados.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
-    pdf_link = search_diary_by_date(target_date)
+    pdf_link, api_pub_date = search_diary_by_date(target_date)
     if not pdf_link:
-        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user,
+        return render_template('index.html', post=Post.query.order_by(Post.publication_date.desc().nullslast()).first(), user=user,
             error=f'Nenhum diário encontrado para {target_date.strftime("%d/%m/%Y")}.', user_fav_ids=fav_ids,
             unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     try:
         pdf_content = requests.get(pdf_link, timeout=60).content
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
-        title, content, commentary = parse_content(raw_text)
+        title, content, commentary, ai_pub_date = parse_content(raw_text)
         new_post = Post(
             title=title, content=content, summary=generate_summary(content),
             commentary=commentary, model=model_name, pdf_link=pdf_link,
-            date=datetime.combine(target_date, datetime.min.time().replace(tzinfo=BRT))
+            date=datetime.combine(target_date, datetime.min.time().replace(tzinfo=BRT)),
+            publication_date=ai_pub_date or api_pub_date or target_date
         )
         db.session.add(new_post)
         user.requests_made += 1
@@ -1307,7 +1333,7 @@ def search_date():
     except Exception as e:
         print(f"Erro durante o processamento: {e}")
         db.session.rollback()
-        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user, error=str(e), user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+        return render_template('index.html', post=Post.query.order_by(Post.publication_date.desc().nullslast()).first(), user=user, error=str(e), user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
 
 @app.route('/favorite/<int:post_id>', methods=['POST'])
 @login_required
@@ -1337,7 +1363,7 @@ def favorites():
 def dashboard():
     user = get_current_user()
     check_premium_expiry(user)
-    latest = Post.query.order_by(Post.date.desc()).first()
+    latest = Post.query.order_by(Post.publication_date.desc().nullslast()).first()
     days_left = get_premium_days_left(user)
     account_created = user.id  # approximate; we don't store created_at, use id as proxy
     unlocked_themes = get_unlocked_themes(user)
@@ -1566,11 +1592,13 @@ def reprocess_latest():
     try:
         pdf_content = requests.get(post.pdf_link, timeout=60).content
         raw_text, model_name = GeminiClient().process_pdf(pdf_content)
-        title, content, commentary = parse_content(raw_text)
+        title, content, commentary, ai_pub_date = parse_content(raw_text)
         post.title = title
         post.content = content
         post.commentary = commentary
         post.model = model_name
+        if ai_pub_date:
+            post.publication_date = ai_pub_date
         db.session.commit()
         print(f'Post {post.id} reprocessado com sucesso')
         return jsonify({'status': 'success', 'title': title})

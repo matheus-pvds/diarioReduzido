@@ -49,7 +49,7 @@
             {% for p in posts %}
             <div class="post-entry">
                 <div class="post-info">
-                    <div class="post-date">{{ p.date.strftime('%d/%m/%Y %H:%M') if p.date else '' }}</div>
+                    <div class="post-date">{{ (p.publication_date or p.date).strftime('%d/%m/%Y') if (p.publication_date or p.date) else '' }}</div>
                     <div class="post-title"><a href="/post/{{ p.id }}">{{ p.title }}</a></div>
                     <div class="post-model">Modelo: {{ p.model }}</div>
                 </div>

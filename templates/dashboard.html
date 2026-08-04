@@ -222,7 +222,7 @@
         <div class="card">
             <h2>&#128240; Diário mais recente</h2>
             {% if latest %}
-            <a href="/" class="big-link">Ver edição de {{ latest.date.strftime('%d/%m/%Y') if latest.date else 'hoje' }}</a>
+            <a href="/" class="big-link">Ver edição de {{ latest.publication_date.strftime('%d/%m/%Y') if latest and latest.publication_date else (latest.date.strftime('%d/%m/%Y') if latest and latest.date else 'hoje') }}</a>
             {% else %}
             <p style="text-align:center;color:#888;">Nenhuma edição disponível ainda.</p>
             {% endif %}

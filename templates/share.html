@@ -29,7 +29,7 @@
 <body>
     <div class="card">
         <h1>{{ title }}</h1>
-        <div class="meta">{{ post.date.strftime('%d/%m/%Y') if post.date else '' }}</div>
+        <div class="meta">{{ (post.publication_date or post.date).strftime('%d/%m/%Y') if (post.publication_date or post.date) else '' }}</div>
         <div class="summary">{{ summary }}</div>
         <div>
             <a href="{{ article_url }}" class="btn" target="_blank">Ler artigo completo</a>
