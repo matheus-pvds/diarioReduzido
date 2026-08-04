@@ -176,6 +176,8 @@ COMBOS = {
 }
 
 def get_theme_price(req_streak, user_streak=0):
+    req_streak = int(req_streak)
+    user_streak = int(user_streak)
     base = THEME_PRICES.get(req_streak, 5.00)
     if user_streak >= req_streak:
         return 0.0
