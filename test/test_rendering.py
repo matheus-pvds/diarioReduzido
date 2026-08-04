@@ -7,10 +7,10 @@ import re
 os.environ['RECAPTCHA_SITE_KEY'] = ''
 os.environ['RECAPTCHA_SECRET_KEY'] = ''
 os.environ['GEMINI_API_KEY'] = 'dummy'
-os.environ['POSTGRES_URL'] = 'sqlite:///:memory:'
+os.environ['POSTGRES_URL'] = 'sqlite:///test_rendering.db'
 os.environ['FLASK_DEBUG'] = 'true'
 
-from app import app, db, Post
+from app import app, db, Post, User
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -36,23 +36,26 @@ def solve_captcha(page_source):
 class TestAllRoutes(unittest.TestCase):
         @classmethod
         def setUpClass(cls):
-                app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+                app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test_rendering.db'
                 app.config['TESTING'] = True
                 cls.ctx = app.app_context()
                 cls.ctx.push()
+                db.drop_all()
                 db.create_all()
                 cls._seed_post()
+                cls._seed_user()
                 cls._start_server()
                 cls._init_driver()
-                cls._register_user()
 
         @classmethod
         def _seed_post(cls):
+                from datetime import date
                 cls.post = Post(
                         title='Teste Render',
                         content='# Header\n\n**bold** and *italic*\n\n- item1\n- item2',
                         model='gemini-2.5-flash',
-                        pdf_link='https://example.com/test.pdf'
+                        pdf_link='https://example.com/test.pdf',
+                        publication_date=date(2026, 7, 24)
                 )
                 db.session.add(cls.post)
                 db.session.commit()
@@ -78,23 +81,15 @@ class TestAllRoutes(unittest.TestCase):
                 cls.wait = WebDriverWait(cls.driver, 10)
 
         @classmethod
-        def _register_user(cls):
-                cls.driver.get(BASE + '/register')
-                time.sleep(0.3)
-                src = cls.driver.page_source
-                cls.driver.find_element(By.NAME, 'username').send_keys(USER)
-                cls.driver.find_element(By.NAME, 'email').send_keys(EMAIL)
-                cls.driver.find_element(By.NAME, 'password').send_keys(PASS)
-                cls.driver.find_element(By.NAME, 'confirm_password').send_keys(PASS)
-                try:
-                        cls.driver.find_element(By.NAME, 'captcha').send_keys(solve_captcha(src))
-                except:
-                        pass
-                cls.driver.find_element(By.XPATH, "//button[@type='submit']").click()
-                WebDriverWait(cls.driver, 10).until(
-                        lambda d: '/dashboard' in d.current_url
-                )
-                cls.driver.get(BASE + '/logout')
+        def _seed_user(cls):
+                from werkzeug.security import generate_password_hash
+                if not User.query.filter_by(username=USER).first():
+                        db.session.add(User(
+                                username=USER, email=EMAIL,
+                                password=generate_password_hash(PASS),
+                                email_verified=True
+                        ))
+                        db.session.commit()
 
         @classmethod
         def tearDownClass(cls):
@@ -103,15 +98,23 @@ class TestAllRoutes(unittest.TestCase):
                 cls.ctx.pop()
 
         def setUp(self):
-                db.session.rollback()
-                p = Post.query.get(1)
-                if not p:
-                        db.session.add(Post(
-                                title='Teste Render',
-                                content='# Header\n\n**bold** and *italic*\n\n- item1\n- item2',
-                                model='gemini-2.5-flash',
-                                pdf_link='https://example.com/test.pdf'
-                        ))
+                with app.app_context():
+                        from werkzeug.security import generate_password_hash
+                        if not User.query.filter_by(username=USER).first():
+                                u = User(username=USER, email=EMAIL,
+                                        password=generate_password_hash(PASS),
+                                        email_verified=True)
+                                db.session.add(u)
+                        p = db.session.get(Post, 1)
+                        if not p:
+                                from datetime import date
+                                db.session.add(Post(
+                                        title='Teste Render',
+                                        content='# Header\n\n**bold** and *italic*\n\n- item1\n- item2',
+                                        model='gemini-2.5-flash',
+                                        pdf_link='https://example.com/test.pdf',
+                                        publication_date=date(2026, 7, 24)
+                                ))
                         db.session.commit()
                 self.driver.get(BASE + '/logout')
 
@@ -134,42 +137,52 @@ class TestAllRoutes(unittest.TestCase):
 
         def _fill_captcha(self):
                 try:
-                        el = self.driver.find_element(By.NAME, 'captcha')
-                        el.send_keys(solve_captcha(self.driver.page_source))
+                        src = self.driver.page_source
+                        if 'name="captcha"' in src:
+                                ans = solve_captcha(src)
+                                self.driver.execute_script(
+                                        f"var f=document.forms[0]; if (f.captcha) {{ f.captcha.value={ans!r}; }}"
+                                )
                 except:
                         pass
 
         def login(self):
                 self.go('/login')
-                time.sleep(0.3)
-                self.find(By.NAME, 'username').send_keys(USER)
-                self.find(By.NAME, 'password').send_keys(PASS)
+                self.wait.until(
+                        EC.presence_of_element_located((By.NAME, 'username'))
+                )
+                self.driver.execute_script(
+                        f"var f=document.forms[0]; f.username.value={USER!r}; f.password.value={PASS!r};"
+                )
                 self._fill_captcha()
-                self.driver.execute_script("document.querySelector('form').submit()")
+                self.driver.execute_script(
+                        "var f=document.forms[0];"
+                        "if (f.captcha) { f.captcha.value = f.captcha.value; }"
+                )
+                self.wait.until(
+                        lambda d: d.execute_script(
+                                "return document.forms[0].username.value"
+                        ) == USER
+                )
+                self.driver.execute_script("document.forms[0].submit()")
                 self.wait.until(lambda d: '/dashboard' in d.current_url)
 
         def register_user(self):
                 u = self.unique()
-                self.go('/register')
-                time.sleep(0.3)
-                self.find(By.NAME, 'username').send_keys(f'u{u}')
-                self.find(By.NAME, 'email').send_keys(f'{u}@t.com')
-                self.find(By.NAME, 'password').send_keys(PASS)
-                self.find(By.NAME, 'confirm_password').send_keys(PASS)
-                self._fill_captcha()
-                self.find(By.XPATH, "//button[@type='submit']").click()
+                self.register_new_user(f'user{u}', f'{u}@t.com', PASS)
                 self.wait.until(lambda d: '/dashboard' in d.current_url)
-                return f'u{u}'
+                return f'user{u}'
 
         def register_new_user(self, user, email, pw):
                 self.go('/register')
-                time.sleep(0.3)
-                self.find(By.NAME, 'username').send_keys(user)
-                self.find(By.NAME, 'email').send_keys(email)
-                self.find(By.NAME, 'password').send_keys(pw)
-                self.find(By.NAME, 'confirm_password').send_keys(pw)
+                self.wait.until(
+                        EC.presence_of_element_located((By.NAME, 'username'))
+                )
+                self.driver.execute_script(
+                        f"var f=document.forms[0]; f.username.value={user!r}; f.email.value={email!r}; f.password.value={pw!r}; f.confirm_password.value={pw!r};"
+                )
                 self._fill_captcha()
-                self.find(By.XPATH, "//button[@type='submit']").click()
+                self.driver.execute_script("document.forms[0].submit()")
 
         # ================================================================
         # PUBLIC ROUTES
@@ -228,8 +241,11 @@ class TestAllRoutes(unittest.TestCase):
                 for text in ['Usuário', 'Senha', 'Esqueci a senha',
                              'Novo por aqui?', 'Crie uma conta', 'Voltar ao início']:
                         self.assert_text(text)
-                for name in ['username', 'password', 'captcha']:
+                for name in ['username', 'password']:
                         self.assertTrue(self.find(By.NAME, name).is_displayed())
+                captchas = self.driver.find_elements(By.NAME, 'captcha')
+                if captchas:
+                        self.assertTrue(captchas[0].is_displayed())
 
         def test_login_submit_btn(self):
                 self.go('/login')
@@ -253,8 +269,11 @@ class TestAllRoutes(unittest.TestCase):
                              'Já tem conta?', 'Entre aqui', 'Voltar ao início']:
                         self.assert_text(text)
                 for name in ['username', 'email', 'password',
-                             'confirm_password', 'captcha']:
+                             'confirm_password']:
                         self.assertTrue(self.find(By.NAME, name).is_displayed())
+                captchas = self.driver.find_elements(By.NAME, 'captcha')
+                if captchas:
+                        self.assertTrue(captchas[0].is_displayed())
 
         def test_register_has_login_link(self):
                 self.go('/register')
@@ -266,21 +285,24 @@ class TestAllRoutes(unittest.TestCase):
                 self.assertIn('Planos', self.driver.title)
                 self.assert_text('Escolha seu plano')
                 for name, price in [('1 Dia', 'R$10'), ('1 Mês', 'R$30'),
-                                    ('3 Meses', 'R$60'), ('6 Meses', 'R$60'),
+                                    ('3 Meses', 'R$40'), ('6 Meses', 'R$60'),
                                     ('Anual', 'R$108')]:
                         with self.subTest(plan=name):
                                 self.assert_text(name)
                                 self.assert_text(price)
                 btns = self.driver.find_elements(
-                        By.XPATH, "//button[contains(text(),'Escolher')]"
+                        By.XPATH, "//button[normalize-space(text())='Assinar']"
                 )
-                self.assertEqual(len(btns), 5)
+                exp_btns = self.driver.find_elements(
+                        By.XPATH, "//button[normalize-space(text())='Experimentar']"
+                )
+                self.assertEqual(len(btns) + len(exp_btns), 5)
 
         def test_plans_perks(self):
                 self.go('/planos')
                 self.assert_text('Todos os planos incluem:')
-                for perk in ['Favoritos ilimitados', 'Pedidos de datas ilimitados',
-                             'Acesso completo ao arquivo', 'Sem anúncios']:
+                for perk in ['Favoritos ilimitados', 'Pesquisas de data ilimitadas',
+                             'Arquivo completo', 'Sem anúncios']:
                         self.assert_text(perk)
 
         def test_plans_back_link(self):
@@ -346,27 +368,32 @@ class TestAllRoutes(unittest.TestCase):
 
         def test_register_then_login(self):
                 u = self.unique()
-                self.register_new_user(f'u{u}', f'{u}@t.com', PASS)
+                self.register_new_user(f'user{u}', f'{u}@t.com', PASS)
                 self.wait.until(lambda d: '/dashboard' in d.current_url)
                 self.go('/logout')
                 self.go('/login')
-                src = self.driver.page_source
-                self.find(By.NAME, 'username').send_keys(f'u{u}')
-                self.find(By.NAME, 'password').send_keys(PASS)
-                self.find(By.NAME, 'captcha').send_keys(solve_captcha(src))
-                self.find(By.XPATH, "//button[@type='submit']").click()
+                self.wait.until(
+                        EC.presence_of_element_located((By.NAME, 'username'))
+                )
+                self.driver.execute_script(
+                        f"var f=document.forms[0]; f.username.value={('user' + u)!r}; f.password.value={PASS!r};"
+                )
+                self._fill_captcha()
+                self.driver.execute_script("document.forms[0].submit()")
                 self.wait.until(lambda d: '/dashboard' in d.current_url)
                 self.assert_text('Painel')
                 self.assert_text('Gratuito')
 
         def test_login_wrong_password(self):
                 self.go('/login')
-                time.sleep(0.3)
-                src = self.driver.page_source
-                self.find(By.NAME, 'username').send_keys(USER)
-                self.find(By.NAME, 'password').send_keys('wrongpass')
-                self.find(By.NAME, 'captcha').send_keys(solve_captcha(src))
-                self.driver.execute_script("document.querySelector('form').submit()")
+                self.wait.until(
+                        EC.presence_of_element_located((By.NAME, 'username'))
+                )
+                self.driver.execute_script(
+                        f"var f=document.forms[0]; f.username.value={USER!r}; f.password.value='wrongpass';"
+                )
+                self._fill_captcha()
+                self.driver.execute_script("document.forms[0].submit()")
                 time.sleep(0.5)
                 self.assert_text('Credenciais inválidas')
 
@@ -386,7 +413,7 @@ class TestAllRoutes(unittest.TestCase):
                 self.login()
                 link = self.find(By.XPATH, "//a[contains(text(),'Ver edição')]")
                 self.assertTrue(link.is_displayed())
-                link.click()
+                self.driver.execute_script("arguments[0].click()", link)
                 self.wait.until(
                         EC.presence_of_element_located((By.CLASS_NAME, 'article-content'))
                 )

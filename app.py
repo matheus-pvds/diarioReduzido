@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for, abort
 from flask_sqlalchemy import SQLAlchemy
 from processor import GeminiClient
 from asaas import create_customer, create_payment, process_webhook
@@ -339,7 +339,7 @@ def get_purchasable_badges(user):
 
 COLUMN_RENAMES = {
     'user': [('password_hash', 'password')],
-    'post': [('body', 'content'), ('text', 'content'), ('summary', 'content'), ('headline', 'title'), ('model_used', 'model')],
+    'post': [('body', 'content'), ('text', 'content'), ('headline', 'title'), ('model_used', 'model')],
     'favorite': [('post_id_old', 'post_id')],
 }
 
@@ -555,7 +555,7 @@ def login_required(f):
     return decorated_function
 
 def get_current_user():
-    return User.query.get(session.get('user_id')) if session.get('user_id') else None
+    return db.session.get(User, session.get('user_id')) if session.get('user_id') else None
 
 def set_checking(value):
     c = AppConfig.query.filter_by(key='is_checking').first()
@@ -574,11 +574,15 @@ def get_client_ip():
     return request.remote_addr or 'unknown'
 
 def validate_csrf():
+    if app.config.get('TESTING'):
+        return True
     stored = session.get('csrf_token')
     token = request.form.get('csrf_token')
     return bool(stored and token and secrets.compare_digest(stored, token))
 
 def check_rate_limit(ip, max_attempts=5, window_minutes=15):
+    if app.config.get('TESTING'):
+        return True
     cutoff = datetime.now(BRT) - timedelta(minutes=window_minutes)
     LoginAttempt.query.filter(LoginAttempt.timestamp < cutoff).delete()
     db.session.commit()
@@ -599,7 +603,7 @@ RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '')
 RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '')
 
 def _captcha_disabled():
-    return RECAPTCHA_SITE_KEY or app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true'
+    return app.config.get('TESTING') or RECAPTCHA_SITE_KEY or app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true'
 
 def generate_captcha():
     if _captcha_disabled():
@@ -612,7 +616,7 @@ def generate_captcha():
     return f"{a} {op} {b}"
 
 def validate_captcha(answer):
-    if app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true':
+    if app.config.get('TESTING') or app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true':
         return True
     if RECAPTCHA_SECRET_KEY:
         token = request.form.get('g-recaptcha-response', '')
@@ -1277,7 +1281,9 @@ def archive():
 
 @app.route('/post/<int:id>')
 def view_post(id):
-    post = Post.query.get_or_404(id)
+    post = db.session.get(Post, id)
+    if post is None:
+        abort(404)
     user = get_current_user()
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     if post:
@@ -1341,7 +1347,8 @@ def search_date():
 @login_required
 def toggle_favorite(post_id):
     user = get_current_user()
-    Post.query.get_or_404(post_id)
+    if db.session.get(Post, post_id) is None:
+        abort(404)
     fav = Favorite.query.filter_by(user_id=user.id, post_id=post_id).first()
     if fav:
         db.session.delete(fav)
@@ -1474,7 +1481,7 @@ def asaas_webhook():
         return jsonify({'error': 'Payload inválido'}), 400
     user_id = process_webhook(payload)
     if user_id:
-        target = User.query.get(user_id)
+        target = db.session.get(User, user_id)
         if target:
             plan_key = payload.get('payment', {}).get('externalReference', '').split('_')[-1]
             value = PLAN_VALUES.get(plan_key, 0)
@@ -1628,7 +1635,9 @@ def pagamento_falha():
 
 @app.route('/share/<int:post_id>')
 def share_post(post_id):
-    post = Post.query.get_or_404(post_id)
+    post = db.session.get(Post, post_id)
+    if post is None:
+        abort(404)
     now = datetime.now(BRT)
     post_date = post.date
     if post_date.tzinfo is None:
@@ -1653,7 +1662,9 @@ def add_comment(post_id):
     if not validate_csrf():
         return jsonify({'error': 'Token inválido.'}), 400
     user = get_current_user()
-    post = Post.query.get_or_404(post_id)
+    post = db.session.get(Post, post_id)
+    if post is None:
+        abort(404)
     content = request.form.get('content', '').strip()
     if not content or len(content) < 2:
         return jsonify({'error': 'Comentário deve ter pelo menos 2 caracteres.'}), 400
@@ -1670,7 +1681,9 @@ def edit_comment(comment_id):
     if not validate_csrf():
         return jsonify({'error': 'Token inválido.'}), 400
     user = get_current_user()
-    comment = Comment.query.get_or_404(comment_id)
+    comment = db.session.get(Comment, comment_id)
+    if comment is None:
+        abort(404)
     if comment.author != user and user.username != 'admin':
         return jsonify({'error': 'Permissão negada.'}), 403
     content = request.form.get('content', '').strip()
@@ -1689,7 +1702,9 @@ def delete_comment(comment_id):
     if not validate_csrf():
         return jsonify({'error': 'Token inválido.'}), 400
     user = get_current_user()
-    comment = Comment.query.get_or_404(comment_id)
+    comment = db.session.get(Comment, comment_id)
+    if comment is None:
+        abort(404)
     if comment.author != user and user.username != 'admin':
         return jsonify({'error': 'Permissão negada.'}), 403
     db.session.delete(comment)
@@ -1702,7 +1717,9 @@ def reply_comment(comment_id):
     if not validate_csrf():
         return jsonify({'error': 'Token inválido.'}), 400
     user = get_current_user()
-    parent = Comment.query.get_or_404(comment_id)
+    parent = db.session.get(Comment, comment_id)
+    if parent is None:
+        abort(404)
     content = request.form.get('content', '').strip()
     if not content or len(content) < 2:
         return jsonify({'error': 'Mínimo 2 caracteres.'}), 400

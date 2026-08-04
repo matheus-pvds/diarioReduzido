@@ -1,10 +1,14 @@
 import io
 import json
 import time
+import warnings
 from datetime import datetime
+import os
+
+warnings.filterwarnings('ignore', message='.*_UnionGenericAlias.*', category=DeprecationWarning)
+
 from google import genai
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
