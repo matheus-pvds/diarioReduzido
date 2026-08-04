@@ -1044,7 +1044,7 @@ def search_diary_by_date_stdlib(target_date):
 def index():
     user = get_current_user()
     check_premium_expiry(user)
-    post = Post.query.order_by(Post.id.desc()).first()
+    post = Post.query.order_by(Post.date.desc()).first()
     if post:
         if post.content:
             post.content = render_md(post.content)
@@ -1062,7 +1062,7 @@ def index():
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     now = datetime.now(BRT)
     unlocked_themes = get_unlocked_themes(user)
-    latest_posts = Post.query.order_by(Post.id.desc()).limit(5).all() if user else []
+    latest_posts = Post.query.order_by(Post.date.desc()).limit(5).all() if user else []
     cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
     return render_template('index.html', post=post, user=user, should_check=should_check,
                            user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend(),
@@ -1260,7 +1260,7 @@ def view_post(id):
             post.commentary = render_md(post.commentary)
     now = datetime.now(BRT)
     unlocked_themes = get_unlocked_themes(user)
-    latest_posts = Post.query.order_by(Post.id.desc()).limit(5).all() if user else []
+    latest_posts = Post.query.order_by(Post.date.desc()).limit(5).all() if user else []
     cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
     return render_template('index.html', post=post, user=user, user_fav_ids=fav_ids,
                            unlocked_themes=unlocked_themes, now=now, latest_posts=latest_posts,
@@ -1275,17 +1275,17 @@ def search_date():
     date_str = request.form.get('date')
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     if not date_str:
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error='Selecione uma data.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user, error='Selecione uma data.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     try:
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error='Data inválida.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user, error='Data inválida.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     if not user.is_paid and user.requests_made >= 1:
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user,
+        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user,
             error='Limite atingido. Faça uma doação para pedidos ilimitados.', user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     pdf_link = search_diary_by_date(target_date)
     if not pdf_link:
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user,
+        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user,
             error=f'Nenhum diário encontrado para {target_date.strftime("%d/%m/%Y")}.', user_fav_ids=fav_ids,
             unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
     try:
@@ -1294,7 +1294,8 @@ def search_date():
         title, content, commentary = parse_content(raw_text)
         new_post = Post(
             title=title, content=content, summary=generate_summary(content),
-            commentary=commentary, model=model_name, pdf_link=pdf_link
+            commentary=commentary, model=model_name, pdf_link=pdf_link,
+            date=datetime.combine(target_date, datetime.min.time().replace(tzinfo=BRT))
         )
         db.session.add(new_post)
         user.requests_made += 1
@@ -1306,7 +1307,7 @@ def search_date():
     except Exception as e:
         print(f"Erro durante o processamento: {e}")
         db.session.rollback()
-        return render_template('index.html', post=Post.query.order_by(Post.id.desc()).first(), user=user, error=str(e), user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
+        return render_template('index.html', post=Post.query.order_by(Post.date.desc()).first(), user=user, error=str(e), user_fav_ids=fav_ids, unlocked_themes=get_unlocked_themes(user), now=datetime.now(BRT), latest_posts=[])
 
 @app.route('/favorite/<int:post_id>', methods=['POST'])
 @login_required
@@ -1336,7 +1337,7 @@ def favorites():
 def dashboard():
     user = get_current_user()
     check_premium_expiry(user)
-    latest = Post.query.order_by(Post.id.desc()).first()
+    latest = Post.query.order_by(Post.date.desc()).first()
     days_left = get_premium_days_left(user)
     account_created = user.id  # approximate; we don't store created_at, use id as proxy
     unlocked_themes = get_unlocked_themes(user)
