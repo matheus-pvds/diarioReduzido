@@ -115,7 +115,7 @@ class Comment(db.Model):
                               lazy=True, order_by='Comment.created_at')
 
 PLAN_DAYS = { '1dia': 1, '1mes': 30, '3meses': 90, '6meses': 180, '12meses': 365 }
-PLAN_VALUES = { '1dia': 50.00, '1mes': 150.00, '3meses': 100.00, '6meses': 300.00, '12meses': 540.00 }
+PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 40.00, '6meses': 60.00, '12meses': 108.00 }
 FREE_MONTH_POINTS = 360
 
 BADGES = {
@@ -129,48 +129,48 @@ BADGES = {
     'moon': ('Lua', '\U0001f319'),
 }
 
-BADGE_PRICE = 15.00
+BADGE_PRICE = 5.00
 
 COMBOS = {
     'combo_starter': {
         'name': 'Combo Iniciante',
-        'price': 120.00,
+        'price': 24.00,
         'plan': '1mes',
         'themes': ['dark'],
         'freezes': 0,
         'badge': None,
         'desc': '1 mês de acesso + tema Dark',
-        'savings': 35,
+        'savings': 7,
     },
     'combo_popular': {
         'name': 'Combo Trimestral+',
-        'price': 95.00,
+        'price': 38.00,
         'plan': '3meses',
         'themes': ['dark', 'sepia'],
         'freezes': 0,
         'badge': None,
         'desc': '3 meses + temas Dark e Sépia',
-        'savings': 25,
+        'savings': 5,
     },
     'combo_annual_plus': {
         'name': 'Combo Anual Premium',
-        'price': 490.00,
+        'price': 98.00,
         'plan': '12meses',
         'themes': ['dark', 'sepia', 'matrix', 'ocean'],
         'freezes': 0,
         'badge': None,
         'desc': '1 ano + 4 temas exclusivos',
-        'savings': 130,
+        'savings': 26,
     },
     'combo_freeze': {
         'name': 'Combo Congelamento',
-        'price': 150.00,
+        'price': 56.00,
         'plan': '3meses',
         'themes': [],
         'freezes': 5,
         'badge': None,
         'desc': '3 meses + 5 congelamentos de streak',
-        'savings': 40,
+        'savings': 8,
     },
 }
 
@@ -664,19 +664,19 @@ STREAK_THEMES = {
 
 THEME_PRICES = {
     3: 5.00,
-    30: 15.00,
-    60: 25.00,
-    90: 35.00,
-    120: 45.00,
-    150: 60.00,
-    180: 75.00,
-    210: 90.00,
-    240: 110.00,
-    270: 130.00,
-    300: 150.00,
-    330: 175.00,
-    360: 200.00,
-    365: 250.00,
+    30: 5.00,
+    60: 7.00,
+    90: 9.00,
+    120: 12.00,
+    150: 15.00,
+    180: 18.00,
+    210: 22.00,
+    240: 26.00,
+    270: 30.00,
+    300: 35.00,
+    330: 40.00,
+    360: 45.00,
+    365: 50.00,
 }
 
 STREAK_BONUS_POINTS = {3: 10, 30: 25, 60: 50, 90: 100, 120: 100, 150: 150,
@@ -1384,14 +1384,14 @@ def create_checkout():
     plan = request.form.get('plan', '')
     billing_type = request.form.get('billing_type', 'card')
     plans_map = {
-        '1dia': (50.00, '1 Dia - Diário Reduzido'),
-        '1mes': (150.00, '1 Mês - Diário Reduzido'),
-        '3meses': (100.00, '3 Meses - Diário Reduzido'),
-        '6meses': (300.00, '6 Meses - Diário Reduzido'),
-        '12meses': (540.00, 'Anual - Diário Reduzido'),
-        'freeze1': (25.00, '1 Congelamento de Streak'),
-        'freeze3': (60.00, '3 Congelamentos de Streak'),
-        'freeze5': (90.00, '5 Congelamentos de Streak'),
+        '1dia': (10.00, '1 Dia - Diário Reduzido'),
+        '1mes': (30.00, '1 Mês - Diário Reduzido'),
+        '3meses': (40.00, '3 Meses - Diário Reduzido'),
+        '6meses': (60.00, '6 Meses - Diário Reduzido'),
+        '12meses': (108.00, 'Anual - Diário Reduzido'),
+        'freeze1': (5.00, '1 Congelamento de Streak'),
+        'freeze3': (12.00, '3 Congelamentos de Streak'),
+        'freeze5': (18.00, '5 Congelamentos de Streak'),
     }
     for tid, (tname, _) in STREAK_THEMES.items():
         plans_map[f'theme_{tid}'] = (get_theme_price(tid, user.streak_count or 0), f'Tema: {tname}')
@@ -1746,7 +1746,7 @@ def update_font():
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
 
-app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS, get_all_font_urls=get_all_font_urls, get_user_font_url=get_user_font_url)
+app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS, get_all_font_urls=get_all_font_urls, get_user_font_url=get_user_font_url, PLAN_VALUES=PLAN_VALUES, PLAN_DAYS=PLAN_DAYS, BADGE_PRICE=BADGE_PRICE)
 
 @app.route('/favicon.ico')
 def favicon():

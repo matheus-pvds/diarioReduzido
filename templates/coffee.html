@@ -141,63 +141,63 @@
         </div>
 
         <div class="plans">
-            <div class="plan-card" data-plan="1mes" data-price="150">
+            <div class="plan-card" data-plan="1mes" data-price="{{ PLAN_VALUES['1mes'] }}">
                 <div class="plan-name">1 Mês</div>
-                <div class="plan-price">R$150</div>
-                <div class="plan-monthly">(~R$150/mês)</div>
+                <div class="plan-price">R${{ '%.0f'|format(PLAN_VALUES['1mes']) }}</div>
+                <div class="plan-monthly">(~R${{ '%.2f'|format(PLAN_VALUES['1mes'] / PLAN_DAYS['1mes']) }}/dia)</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
-                    <li>Acesso total por 30 dias</li>
+                    <li>Acesso total por {{ PLAN_DAYS['1mes'] }} dias</li>
                     <li>Sem anúncios</li>
                     <li>Cancele quando quiser</li>
                     <li>&nbsp;</li>
                 </ul>
-                <button class="plan-btn" onclick="openCheckout('1mes', '1 Mês', 150)">Assinar</button>
+                <button class="plan-btn" onclick="openCheckout('1mes', '1 Mês', {{ PLAN_VALUES['1mes'] }})">Assinar</button>
             </div>
-            <div class="plan-card best-value" data-plan="3meses" data-price="100">
+            <div class="plan-card best-value" data-plan="3meses" data-price="{{ PLAN_VALUES['3meses'] }}">
                 <div class="plan-name">3 Meses</div>
-                <div class="plan-price">R$100</div>
-                <div class="plan-monthly">(~R$33,33/mês)</div>
+                <div class="plan-price">R${{ '%.0f'|format(PLAN_VALUES['3meses']) }}</div>
+                <div class="plan-monthly">(~R${{ '%.2f'|format(PLAN_VALUES['3meses'] / (PLAN_DAYS['3meses'] / 30)) }}/mês)</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
-                    <li>Acesso total por 90 dias</li>
-                    <li>Economia de <strong>78%</strong></li>
-                    <li>Menos de R$ 1,12/dia</li>
+                    <li>Acesso total por {{ PLAN_DAYS['3meses'] }} dias</li>
+                    <li>Economia de <strong>{{ ((1 - PLAN_VALUES['3meses'] / (PLAN_VALUES['1mes'] * 3)) * 100)|round|int }}%</strong></li>
+                    <li>Menos de R$ {{ '%.2f'|format(PLAN_VALUES['3meses'] / PLAN_DAYS['3meses']) }}/dia</li>
                     <li>&nbsp;</li>
                 </ul>
-                <button class="plan-btn gold" onclick="openCheckout('3meses', '3 Meses', 100)">Assinar</button>
+                <button class="plan-btn gold" onclick="openCheckout('3meses', '3 Meses', {{ PLAN_VALUES['3meses'] }})">Assinar</button>
             </div>
-            <div class="plan-card featured" data-plan="12meses" data-price="540">
+            <div class="plan-card featured" data-plan="12meses" data-price="{{ PLAN_VALUES['12meses'] }}">
                 <div class="plan-name">Anual</div>
-                <div class="plan-price">R$540</div>
-                <div class="plan-monthly">(~R$45/mês)</div>
-                <div class="plan-detail">Menos de R$ 1,48/dia</div>
+                <div class="plan-price">R${{ '%.0f'|format(PLAN_VALUES['12meses']) }}</div>
+                <div class="plan-monthly">(~R${{ '%.2f'|format(PLAN_VALUES['12meses'] / (PLAN_DAYS['12meses'] / 30)) }}/mês)</div>
+                <div class="plan-detail">Menos de R$ {{ '%.2f'|format(PLAN_VALUES['12meses'] / PLAN_DAYS['12meses']) }}/dia</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
-                    <li>Acesso total por 1 ano</li>
-                    <li>Maior economia: <strong>70% OFF</strong></li>
+                    <li>Acesso total por {{ (PLAN_DAYS['12meses'] / 30)|round|int }} meses</li>
+                    <li>Maior economia: <strong>{{ ((1 - PLAN_VALUES['12meses'] / (PLAN_VALUES['1mes'] * 12)) * 100)|round|int }}% OFF</strong></li>
                     <li>Preço bloqueado por 12 meses</li>
                     <li>Prioridade em novas features</li>
                 </ul>
-                <button class="plan-btn green" onclick="openCheckout('12meses', 'Anual', 540)">Assinar</button>
+                <button class="plan-btn green" onclick="openCheckout('12meses', 'Anual', {{ PLAN_VALUES['12meses'] }})">Assinar</button>
             </div>
-            <div class="plan-card" data-plan="6meses" data-price="300">
+            <div class="plan-card" data-plan="6meses" data-price="{{ PLAN_VALUES['6meses'] }}">
                 <div class="plan-name">6 Meses</div>
-                <div class="plan-price">R$300</div>
-                <div class="plan-monthly">(~R$50/mês)</div>
+                <div class="plan-price">R${{ '%.0f'|format(PLAN_VALUES['6meses']) }}</div>
+                <div class="plan-monthly">(~R${{ '%.2f'|format(PLAN_VALUES['6meses'] / (PLAN_DAYS['6meses'] / 30)) }}/mês)</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
-                    <li>Acesso total por 180 dias</li>
-                    <li>Economia de 67%</li>
-                    <li>Apenas R$ 1,67/dia</li>
+                    <li>Acesso total por {{ PLAN_DAYS['6meses'] }} dias</li>
+                    <li>Economia de {{ ((1 - PLAN_VALUES['6meses'] / (PLAN_VALUES['1mes'] * 6)) * 100)|round|int }}%</li>
+                    <li>Apenas R$ {{ '%.2f'|format(PLAN_VALUES['6meses'] / PLAN_DAYS['6meses']) }}/dia</li>
                     <li>&nbsp;</li>
                 </ul>
-                <button class="plan-btn" onclick="openCheckout('6meses', '6 Meses', 300)">Assinar</button>
+                <button class="plan-btn" onclick="openCheckout('6meses', '6 Meses', {{ PLAN_VALUES['6meses'] }})">Assinar</button>
             </div>
-            <div class="plan-card" data-plan="1dia" data-price="50">
+            <div class="plan-card" data-plan="1dia" data-price="{{ PLAN_VALUES['1dia'] }}">
                 <div class="plan-name">1 Dia</div>
-                <div class="plan-price">R$50</div>
-                <div class="plan-monthly">(~R$50/dia)</div>
+                <div class="plan-price">R${{ '%.0f'|format(PLAN_VALUES['1dia']) }}</div>
+                <div class="plan-monthly">(~R${{ '%.0f'|format(PLAN_VALUES['1dia']) }}/dia)</div>
                 <hr class="plan-divider">
                 <ul class="plan-perks">
                     <li>Acesso total por 24h</li>
@@ -205,7 +205,7 @@
                     <li>Experimente sem compromisso</li>
                     <li>&nbsp;</li>
                 </ul>
-                <button class="plan-btn" onclick="openCheckout('1dia', '1 Dia', 50)">Experimentar</button>
+                <button class="plan-btn" onclick="openCheckout('1dia', '1 Dia', {{ PLAN_VALUES['1dia'] }})">Experimentar</button>
             </div>
         </div>
 
@@ -253,32 +253,32 @@
         </p>
 
         <div class="freeze-plans">
-            <div class="freeze-card" data-plan="freeze1" data-price="25">
+            <div class="freeze-card" data-plan="freeze1" data-price="{{ PLAN_VALUES['freeze1'] }}">
                 <div class="freeze-icon">&#10052;&#65039;</div>
                 <div class="freeze-name">1 Congelamento</div>
-                <div class="freeze-price">R$25</div>
+                <div class="freeze-price">R${{ '%.0f'|format(PLAN_VALUES['freeze1']) }}</div>
                 <div class="freeze-desc">Protege 1 dia de streak</div>
-                <button class="plan-btn" onclick="openCheckout('freeze1', '1 Congelamento de Streak', 25)">Comprar</button>
+                <button class="plan-btn" onclick="openCheckout('freeze1', '1 Congelamento de Streak', {{ PLAN_VALUES['freeze1'] }})">Comprar</button>
             </div>
-            <div class="freeze-card" data-plan="freeze3" data-price="60">
+            <div class="freeze-card" data-plan="freeze3" data-price="{{ PLAN_VALUES['freeze3'] }}">
                 <div class="freeze-icon">&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;</div>
                 <div class="freeze-name">3 Congelamentos</div>
-                <div class="freeze-price">R$60</div>
-                <div class="freeze-desc">Melhor custo: ~R$20 cada</div>
-                <button class="plan-btn gold" onclick="openCheckout('freeze3', '3 Congelamentos de Streak', 60)">Comprar</button>
+                <div class="freeze-price">R${{ '%.0f'|format(PLAN_VALUES['freeze3']) }}</div>
+                <div class="freeze-desc">Melhor custo: ~R${{ '%.2f'|format(PLAN_VALUES['freeze3'] / 3) }} cada</div>
+                <button class="plan-btn gold" onclick="openCheckout('freeze3', '3 Congelamentos de Streak', {{ PLAN_VALUES['freeze3'] }})">Comprar</button>
             </div>
-            <div class="freeze-card featured" data-plan="freeze5" data-price="90">
+            <div class="freeze-card featured" data-plan="freeze5" data-price="{{ PLAN_VALUES['freeze5'] }}">
                 <div class="freeze-icon">&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;&#10052;&#65039;</div>
                 <div class="freeze-name">5 Congelamentos</div>
-                <div class="freeze-price">R$90</div>
-                <div class="freeze-desc">Maior economia: ~R$18 cada</div>
-                <button class="plan-btn green" onclick="openCheckout('freeze5', '5 Congelamentos de Streak', 90)">Comprar</button>
+                <div class="freeze-price">R${{ '%.0f'|format(PLAN_VALUES['freeze5']) }}</div>
+                <div class="freeze-desc">Maior economia: ~R${{ '%.2f'|format(PLAN_VALUES['freeze5'] / 5) }} cada</div>
+                <button class="plan-btn green" onclick="openCheckout('freeze5', '5 Congelamentos de Streak', {{ PLAN_VALUES['freeze5'] }})">Comprar</button>
             </div>
         </div>
 
         <div class="section-title">&#127912; Compre Temas Individuais</div>
         <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
-            Cada tema tem um valor progressivo — quanto mais raro, mais caro. O <strong>Modo Escuro</strong> é simbólico (R$1), enquanto <strong>O Coroado</strong> (365 dias) é o mais exclusivo. Se você já desbloqueou por streak, não precisa comprar.
+            Cada tema tem um valor progressivo — quanto mais raro, mais caro. O <strong>Modo Escuro</strong> custa apenas R${{ '%.0f'|format(get_theme_price('7', 0)) }}, enquanto <strong>O Coroado</strong> (365 dias) é o mais exclusivo a R${{ '%.0f'|format(get_theme_price('365', 0)) }}. Se você já desbloqueou por streak, não precisa comprar.
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-bottom:2rem;">
             {% for tid, (tname, _) in STREAK_THEMES|dictsort %}
@@ -303,7 +303,7 @@
 
         <div class="section-title">&#127891; Distintivos Decorativos</div>
         <p style="text-align:center; max-width:600px; margin:0 auto 1.5rem; color:#555; font-size:0.95rem;">
-            Cada distintivo custa <strong>R$15</strong> e aparece ao lado do seu nome nos comentários. Você pode usar apenas um por vez.
+            Cada distintivo custa <strong>R${{ '%.0f'|format(BADGE_PRICE) }}</strong> e aparece ao lado do seu nome nos comentários. Você pode usar apenas um por vez.
         </p>
         <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-bottom:2rem;">
             {% for bid, (bname, bemoji) in BADGES|dictsort %}
@@ -314,7 +314,7 @@
                 {% if owned %}
                 <div style="font-size:0.7rem;color:var(--green);">&#10003; Seu</div>
                 {% else %}
-                <button class="plan-btn" style="padding:0.3rem 0.8rem;font-size:0.75rem;" onclick="openCheckout('badge_{{ bid }}', 'Distintivo: {{ bemoji }} {{ bname }}', 15)">Comprar R$15</button>
+                <button class="plan-btn" style="padding:0.3rem 0.8rem;font-size:0.75rem;" onclick="openCheckout('badge_{{ bid }}', 'Distintivo: {{ bemoji }} {{ bname }}', {{ BADGE_PRICE }})">Comprar R${{ '%.0f'|format(BADGE_PRICE) }}</button>
                 {% endif %}
             </div>
             {% endfor %}
@@ -336,7 +336,7 @@
             </div>
             <div class="faq-item">
                 <div class="faq-q">Quanto custa por dia?</div>
-                <div class="faq-a">O plano de 3 meses sai por apenas <strong>R$ 1,12/dia</strong> — menos que um cafezinho. O anual fica <strong>R$ 1,48/dia</strong>. Compare com o custo de uma consultoria jurídica ou o tempo que você gasta lendo o PDF oficial.</div>
+                <div class="faq-a">O plano de 3 meses sai por apenas <strong>R$ {{ '%.2f'|format(PLAN_VALUES['3meses'] / PLAN_DAYS['3meses']) }}/dia</strong> — menos que um cafezinho. O anual fica <strong>R$ {{ '%.2f'|format(PLAN_VALUES['12meses'] / PLAN_DAYS['12meses']) }}/dia</strong>. Compare com o custo de uma consultoria jurídica ou o tempo que você gasta lendo o PDF oficial.</div>
             </div>
             <div class="faq-item">
                 <div class="faq-q">Quais formas de pagamento?</div>

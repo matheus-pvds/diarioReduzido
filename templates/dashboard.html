@@ -308,7 +308,7 @@
                 </label>
                 {% else %}
                 <div class="title-option" style="display:inline-flex;align-items:center;gap:0.3rem;">
-                    <a href="/planos" style="color:var(--accent-red);font-size:0.75rem;text-decoration:none;border:1px dashed var(--border-light);padding:0.3rem 0.6rem;border-radius:20px;">{{ bemoji }} {{ bname }} — R$15</a>
+                    <a href="/planos" style="color:var(--accent-red);font-size:0.75rem;text-decoration:none;border:1px dashed var(--border-light);padding:0.3rem 0.6rem;border-radius:20px;">{{ bemoji }} {{ bname }} — R${{ '%.0f'|format(BADGE_PRICE) }}</a>
                 </div>
                 {% endif %}
                 {% endfor %}
