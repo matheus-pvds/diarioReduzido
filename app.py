@@ -592,7 +592,7 @@ def validate_csrf():
     token = request.form.get('csrf_token')
     return bool(stored and token and secrets.compare_digest(stored, token))
 
-def check_rate_limit(ip, max_attempts=5, window_minutes=15):
+def check_rate_limit(ip, max_attempts=10, window_minutes=15):
     if app.config.get('TESTING'):
         return True
     cutoff = datetime.now(BRT) - timedelta(minutes=window_minutes)
@@ -610,6 +610,17 @@ def check_rate_limit(ip, max_attempts=5, window_minutes=15):
 def record_attempt(ip, success):
     db.session.add(LoginAttempt(ip_address=ip, success=success))
     db.session.commit()
+
+def failed_attempt_count(ip):
+    cutoff = datetime.now(BRT) - timedelta(minutes=15)
+    return LoginAttempt.query.filter(
+        LoginAttempt.ip_address == ip,
+        LoginAttempt.timestamp > cutoff,
+        LoginAttempt.success == False
+    ).count()
+
+def should_show_captcha(ip):
+    return failed_attempt_count(ip) >= 5
 
 RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '')
 RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '')
@@ -1169,16 +1180,13 @@ def api_status():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        import sys
         ip = get_client_ip()
         if not check_rate_limit(ip):
-            print('→ RATE LIMIT', file=sys.stderr)
             return render_template('login.html', error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_csrf():
-            print('→ CSRF FAIL', file=sys.stderr)
             return render_template('login.html', error='Token inválido. Recarregue a página.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
-        if not validate_captcha(request.form.get('captcha')):
-            print('→ CAPTCHA FAIL', file=sys.stderr)
+        need_captcha = should_show_captcha(ip)
+        if need_captcha and not validate_captcha(request.form.get('captcha')):
             record_attempt(ip, False)
             return render_template('login.html', error='Captcha incorreto.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         user = User.query.filter_by(username=request.form.get('username', '').strip()).first()
@@ -1186,12 +1194,11 @@ def login():
             session['user_id'] = user.id
             update_streak(user)
             record_attempt(ip, True)
-            print('→ SUCCESS', file=sys.stderr)
             return redirect(request.args.get('next') or url_for('dashboard'))
-        print(f'→ CRED FAIL (user={user is not None})', file=sys.stderr)
         record_attempt(ip, False)
-        return render_template('login.html', error='Credenciais inválidas.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
-    return render_template('login.html', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+        return render_template('login.html', error='Credenciais inválidas.', captcha_question=generate_captcha() if should_show_captcha(ip) else None, recaptcha_site_key=RECAPTCHA_SITE_KEY)
+    ip = get_client_ip()
+    return render_template('login.html', captcha_question=generate_captcha() if should_show_captcha(ip) else None, recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -1201,25 +1208,27 @@ def register():
             return render_template('login.html', registering=True, error='Muitas tentativas. Aguarde alguns minutos.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not validate_csrf():
             return render_template('login.html', registering=True, error='Token inválido. Recarregue a página.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
-        if not validate_captcha(request.form.get('captcha')):
+        need_captcha = should_show_captcha(ip)
+        if need_captcha and not validate_captcha(request.form.get('captcha')):
             record_attempt(ip, False)
             return render_template('login.html', registering=True, error='Captcha incorreto.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         confirm = request.form.get('confirm_password', '')
+        captcha_q = generate_captcha() if should_show_captcha(ip) else None
         if len(username) < 3 or len(username) > 80:
-            return render_template('login.html', registering=True, error='Usuário deve ter 3-80 caracteres.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+            return render_template('login.html', registering=True, error='Usuário deve ter 3-80 caracteres.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if not email or '@' not in email:
-            return render_template('login.html', registering=True, error='E-mail inválido.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+            return render_template('login.html', registering=True, error='E-mail inválido.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if len(password) < 4:
-            return render_template('login.html', registering=True, error='Senha deve ter no mínimo 4 caracteres.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+            return render_template('login.html', registering=True, error='Senha deve ter no mínimo 4 caracteres.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if password != confirm:
-            return render_template('login.html', registering=True, error='Senhas não conferem.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+            return render_template('login.html', registering=True, error='Senhas não conferem.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if User.query.filter_by(username=username).first():
-            return render_template('login.html', registering=True, error='Usuário já existe.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+            return render_template('login.html', registering=True, error='Usuário já existe.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         if User.query.filter_by(email=email).first():
-            return render_template('login.html', registering=True, error='E-mail já cadastrado.', captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+            return render_template('login.html', registering=True, error='E-mail já cadastrado.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         token = secrets.token_urlsafe(48)
         user = User(username=username, email=email, password=generate_password_hash(password), verification_token=token, streak_freezes=3)
         db.session.add(user)
@@ -1232,7 +1241,8 @@ def register():
         update_streak(user)
         record_attempt(ip, True)
         return redirect(url_for('dashboard'))
-    return render_template('login.html', registering=True, captcha_question=generate_captcha(), recaptcha_site_key=RECAPTCHA_SITE_KEY)
+    ip = get_client_ip()
+    return render_template('login.html', registering=True, captcha_question=generate_captcha() if should_show_captcha(ip) else None, recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
 @app.route('/logout')
 def logout():
