@@ -408,7 +408,7 @@ def migrate_columns():
                     db.session.rollback()
     db.session.commit()
 
-def generate_summary(text):
+def generate_summary(text, limit=350):
     if not text:
         return ''
     clean = re.sub(r'[#*`>\[\]]+', '', text)
@@ -441,9 +441,18 @@ def generate_summary(text):
                 key_sentences.append(s)
                 break
     result = ' '.join(key_sentences)
-    if len(result) > 350:
-        result = result[:347] + '...'
+    if len(result) > limit:
+        cut = result[:limit]
+        boundary = max(cut.rfind('. '), cut.rfind('! '), cut.rfind('? '))
+        if boundary > 0:
+            result = cut[:boundary + 1]
+        else:
+            result = cut.rstrip() + '...'
     return result.strip()
+
+
+def make_teaser(content, limit=200):
+    return generate_summary(content, limit=limit)
 
 
 def parse_content(text):
@@ -1095,7 +1104,12 @@ def index():
     fav_ids = {f.post_id for f in user.favorites} if user else set()
     now = datetime.now(BRT)
     unlocked_themes = get_unlocked_themes(user)
-    latest_posts = Post.query.order_by(Post.publication_date.desc().nullslast()).limit(5).all() if user else []
+    latest_posts = Post.query.order_by(Post.publication_date.desc().nullslast()).all()
+    if post:
+        latest_posts = [p for p in latest_posts if p.id != post.id]
+    for p in latest_posts[:5]:
+        p.teaser = make_teaser(p.content)
+    latest_posts = latest_posts[:5]
     cidadao_pct = min(100, int(((user.streak_count or 0) / 90) * 100)) if user else 0
     return render_template('index.html', post=post, user=user, should_check=should_check,
                            user_fav_ids=fav_ids, check_interval=interval_min, is_weekend=is_weekend(),

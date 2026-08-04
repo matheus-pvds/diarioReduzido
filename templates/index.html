@@ -354,18 +354,7 @@
             </div>
             <div class="article-content" id="rendered-content">
                 {% if post.content and post.content.strip() %}
-                {% if user and user.is_paid %}
                 {{ post.content|safe }}
-                {% elif post.summary %}
-                <div style="font-size:1rem;line-height:1.6;">
-                {{ post.summary }}
-                </div>
-                <p style="margin-top:1.5rem;font-size:0.85rem;color:#888;font-style:italic;text-align:center;border-top:1px dashed var(--border-light);padding-top:1rem;">
-                    Esta é uma prévia resumida. <a href="/planos" style="color:var(--accent-red);">Torne-se Premium</a> para ler a edição completa.
-                </p>
-                {% else %}
-                {{ post.content|safe }}
-                {% endif %}
                 {% else %}
                 <p style="color:#888;font-style:italic;">Conteúdo temporariamente indisponível.</p>
                 {% if user %}
@@ -480,6 +469,23 @@
                 </div>
             </div>
         </article>
+        {% if latest_posts %}
+        <div style="margin-top: 3rem; border-top: 2px dashed var(--border-light); padding-top: 1.5rem;">
+            <h3 style="font-family: var(--font-heading); font-size: 1.4rem; margin-bottom: 1.2rem;">Edições anteriores</h3>
+            {% for p in latest_posts %}
+            <div style="margin-bottom: 1.5rem; padding-bottom: 1.2rem; border-bottom: 1px solid var(--border-light);">
+                <h4 style="font-family: var(--font-heading); font-size: 1.1rem; margin-bottom: 0.3rem;">
+                    <a href="/post/{{ p.id }}" style="color: var(--ink-color); text-decoration: none;">{{ p.title }}</a>
+                </h4>
+                <div style="font-size: 0.8rem; color: #888; margin-bottom: 0.5rem;">
+                    {{ p.publication_date.strftime('%d/%m/%Y') if p.publication_date else (p.date.strftime('%d/%m/%Y') if p.date else '') }}
+                </div>
+                <p style="font-size: 0.9rem; line-height: 1.6; color: #444;">{{ p.teaser }}</p>
+                <a href="/post/{{ p.id }}" style="color: var(--accent-red); font-size: 0.85rem; text-decoration: underline;">Ler edição completa &rarr;</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         {% else %}
         <div class="no-content" id="noContent">
             <h3>Extraordinário!</h3>
