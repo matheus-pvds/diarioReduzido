@@ -116,7 +116,7 @@ class Comment(db.Model):
                               lazy=True, order_by='Comment.created_at')
 
 PLAN_DAYS = { '1dia': 1, '1mes': 30, '3meses': 90, '6meses': 180, '12meses': 365 }
-PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 40.00, '6meses': 60.00, '12meses': 108.00 }
+PLAN_VALUES = { '1dia': 10.00, '1mes': 30.00, '3meses': 40.00, '6meses': 60.00, '12meses': 108.00, 'freeze1': 5.00, 'freeze3': 12.00, 'freeze5': 18.00 }
 FREE_MONTH_POINTS = 360
 
 BADGES = {
