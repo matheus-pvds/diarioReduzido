@@ -163,65 +163,14 @@
         .comment-form button { background: var(--ink-color); color: var(--paper-color); border: none; padding: 0.5rem 1.5rem; font-family: var(--font-heading); font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; margin-top: 0.5rem; }
         .comment-form button:hover { background: var(--accent-red); }
 
-        @keyframes spin { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
-        @keyframes pedal { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
-        @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
-        @keyframes roadMove { from { transform: translateX(0); } to { transform: translateX(-20px); } }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-
         .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: none; justify-content: center; align-items: center; flex-direction: column; }
         .loading-overlay.active { display: flex; }
-        .loading-text { color: #fff; font-family: var(--font-heading); font-size: 1.8rem; margin-bottom: 1rem; letter-spacing: 1px; }
-        .loading-sub { color: #aaa; font-family: var(--font-body); font-size: 1rem; font-style: italic; margin-bottom: 1.5rem; }
+        .loading-text { color: #fff; font-family: var(--font-heading); font-size: 1.8rem; margin-bottom: 1.5rem; letter-spacing: 1px; text-align: center; padding: 0 1rem; }
 
-        .bike-scene { width: 280px; height: 200px; position: relative; margin-bottom: 1.5rem; --boost: 1; }
-        .road { position: absolute; bottom: 18px; left: 10px; right: 10px; height: 3px; background: #444; border-radius: 2px; overflow: hidden; }
-        .road::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(90deg, #fff 0, #fff 8px, transparent 8px, transparent 18px); animation: roadMove calc(0.6s / var(--boost, 1)) linear infinite; }
-
-        .wheel-b { position: absolute; bottom: 18px; width: 44px; height: 44px; border: 3px solid #ddd; border-radius: 50%; }
-        .wheel-b.back { left: 20px; }
-        .wheel-b.front { right: 20px; }
-        .wheel-b::after { content: ''; position: absolute; top: 2px; left: 50%; width: 2px; height: calc(100% - 4px); background: #999; transform: translateX(-50%); animation: spin calc(0.8s / var(--boost, 1)) linear infinite; }
-        .wheel-b::before { content: ''; position: absolute; top: 50%; left: 2px; width: calc(100% - 4px); height: 2px; background: #999; top: 50%; transform: translateY(-50%); animation: spin calc(0.8s / var(--boost, 1)) linear infinite; }
-
-        .bike-frame { position: absolute; bottom: 62px; left: 42px; width: 196px; height: 2px; background: #ddd; border-radius: 1px; }
-        .tube-stay { position: absolute; bottom: 40px; left: 140px; width: 2px; height: 100px; background: #ddd; transform: rotate(-77deg); transform-origin: bottom center; }
-        .tube-down { position: absolute; bottom: 40px; left: 140px; width: 2px; height: 101px; background: #ddd; transform: rotate(76deg); transform-origin: bottom center; }
-        .fork { position: absolute; bottom: 40px; left: 237px; width: 2px; height: 42px; background: #ddd; }
-
-        .seat { position: absolute; left: 50%; bottom: 85px; width: 22px; height: 4px; background: #ddd; border-radius: 2px; transform: translateX(-50%); }
-        .seat::after { content: ''; position: absolute; top: 4px; left: 50%; width: 2px; height: 23px; background: #999; transform: translateX(-50%); }
-
-        .handlebars { position: absolute; left: 224px; bottom: 80px; width: 28px; height: 4px; background: #ddd; border-radius: 2px; }
-
-        .rider { position: absolute; left: 50%; bottom: 85px; transform: translateX(-50%); animation: bounce calc(0.4s / var(--boost, 1)) ease-in-out infinite; }
-        .rider-head { width: 22px; height: 22px; background: #f5d6c6; border-radius: 50%; margin: 0 auto; position: relative; }
-        .rider-hat { position: absolute; top: -6px; left: -2px; width: 28px; height: 8px; background: #8B4513; border-radius: 2px; }
-        .rider-hat::after { content: ''; position: absolute; top: -6px; left: 4px; width: 18px; height: 8px; background: #8B4513; border-radius: 2px 2px 0 0; }
-        .rider-body { width: 14px; height: 20px; background: #c0392b; margin: 2px auto 0; border-radius: 3px 3px 0 0; position: relative; }
-        .rider-leg { position: absolute; width: 20px; height: 3px; background: #c0392b; border-radius: 2px; }
-        .rider-leg.front { left: 1px; bottom: -26px; transform: rotate(-45deg); transform-origin: top left; }
-        .rider-leg.back { right: 1px; bottom: -26px; transform: rotate(45deg); transform-origin: top right; }
-        .rider-arm { position: absolute; top: 2px; width: 20px; height: 3px; background: #f5d6c6; border-radius: 2px; }
-        .rider-arm.left { left: -16px; transform: rotate(30deg); transform-origin: right center; }
-        .rider-arm.right { right: -16px; transform: rotate(-30deg); transform-origin: left center; }
-
-        .pedals { position: absolute; bottom: 30px; left: 50%; width: 20px; height: 20px; transform: translateX(-50%); animation: pedal calc(0.8s / var(--boost, 1)) linear infinite; }
-        .pedal-arm { position: absolute; top: 50%; left: 50%; width: 24px; height: 2px; background: #ddd; transform-origin: center; }
-        .pedal-arm:nth-child(1) { transform: translate(-50%, -50%) rotate(0deg); }
-        .pedal-arm:nth-child(2) { transform: translate(-50%, -50%) rotate(180deg); }
-        .pedal-arm::after { content: ''; position: absolute; top: -2px; width: 6px; height: 6px; background: #999; border-radius: 2px; }
-        .pedal-arm:first-child::after { right: -3px; }
-        .pedal-arm:last-child::after { left: -3px; }
-
-        .progress-wrap { width: 280px; margin-top: 0.5rem; }
-        .progress-track { width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
-        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #e8a317, #f5d6c6); border-radius: 4px; transition: width 0.3s; }
-        .progress-label { color: #aaa; font-size: 0.85rem; margin-top: 0.4rem; display: flex; justify-content: space-between; font-family: var(--font-body); }
-
-        .pedal-btn { margin-top: 1rem; background: #e8a317; color: #111; border: none; padding: 0.5rem 1.4rem; font-family: var(--font-body); font-size: 0.9rem; font-weight: 700; border-radius: 20px; cursor: pointer; transition: transform 0.1s, background 0.2s, color 0.2s; }
-        .pedal-btn:active { transform: scale(0.94); }
-        .pedal-btn.boost-on { background: #c0392b; color: #fff; }
+        .loading-gif { width: 132px; height: 132px; margin-bottom: 1.5rem; }
+        .loading-phrases { color: #ccc; font-family: var(--font-body); font-size: 0.98rem; text-align: center; max-width: 460px; line-height: 1.6; min-height: 4.8em; padding: 0 1.2rem; }
+        .loading-phrases .phase-num { color: #e8a317; font-weight: 700; margin-right: 0.35rem; }
+        .loading-phrases .phase-err { color: #e74c3c; }
 
         .coffee-link { display: inline-block; margin-top: 0.5rem; font-size: 0.85rem; }
         .coffee-link a { color: var(--accent-red); text-decoration: underline; }
@@ -230,35 +179,8 @@
 <body class="{{ 'theme-' + user.theme if user and user.theme else '' }}{{ ' premium-bg' if user and user.is_paid and user.theme and user.theme != 'newspaper' else '' }}">
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-text">Buscando o diário de hoje...</div>
-        <div class="loading-sub">O jornaleiro está a caminho das gráficas</div>
-        <div class="bike-scene">
-            <div class="wheel-b back"></div>
-            <div class="wheel-b front"></div>
-            <div class="bike-frame"></div>
-            <div class="tube-stay"></div>
-            <div class="tube-down"></div>
-            <div class="fork"></div>
-            <div class="seat"></div>
-            <div class="handlebars"></div>
-            <div class="rider">
-                <div class="rider-head">
-                    <div class="rider-hat"></div>
-                </div>
-                <div class="rider-body">
-                    <div class="rider-leg front"></div>
-                    <div class="rider-leg back"></div>
-                    <div class="rider-arm left"></div>
-                    <div class="rider-arm right"></div>
-                </div>
-            </div>
-            <div class="pedals"><div class="pedal-arm"></div><div class="pedal-arm"></div></div>
-            <div class="road"></div>
-        </div>
-        <div class="progress-wrap">
-            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-            <div class="progress-label"><span>Carregando...</span><span id="progressText">0%</span></div>
-        </div>
-        <button type="button" class="pedal-btn" id="pedalBtn">Pedalar mais forte</button>
+        <img class="loading-gif" id="loadingGif" src="/static/img/loading.gif" loading="lazy" alt="Carregando">
+        <div class="loading-phrases" id="loadingPhrases"></div>
     </div>
 
     {% if not (user and user.is_paid) %}
@@ -603,89 +525,153 @@
         if (t) t.textContent = '[esconder]';
     });
     {% endif %}
-    var ETA_KEY = 'diario_eta_ms';
-    var pedalBoostActive = false;
+    var LOADING_GIFS = [
+        "https://media.giphy.com/media/bhSi84uFsp66s/200w.gif", "https://media.giphy.com/media/StiYWWNxWcWA0/200w.gif", "https://media.giphy.com/media/iqryv05RJMVlm/200w.gif", "https://media.giphy.com/media/3osxYx5lWVYfV8nly8/200w.gif",
+        "https://media.giphy.com/media/VI2namgmZjalWLGe1T/200w.gif", "https://media.giphy.com/media/xT0GqrJNbZkRcr2Jgc/200w.gif", "https://media.giphy.com/media/3o84Ufy4oR2l0nSdEs/200w.gif", "https://media.giphy.com/media/wg4y5TWOFXN3a/200w.gif",
+        "https://media.giphy.com/media/12MqSTw12YAnkI/200w.gif", "https://media.giphy.com/media/1n5EdtQqpVvtfRb7nm/200w.gif", "https://media.giphy.com/media/VoqUxCDAQYlNK/200w.gif", "https://media.giphy.com/media/2DikMPg9teWl7OOvsv/200w.gif",
+        "https://media.giphy.com/media/4POSAHigbdRJdV6Wq1/200w.gif", "https://media.giphy.com/media/l41lYNASsqlUOt9Xq/200w.gif", "https://media.giphy.com/media/kDw8fF5mPua1MDeEmi/200w.gif", "https://media.giphy.com/media/aUYdDG1QpRL4mcvKuc/200w.gif",
+        "https://media.giphy.com/media/XqKH6GqYatE63lmD2D/200w.gif", "https://media.giphy.com/media/4JaRL3DPTUVLG/200w.gif", "https://media.giphy.com/media/J33XbsTlgjzyNoL0r8/200w.gif", "https://media.giphy.com/media/VnaMMuJt5jbmE/200w.gif",
+        "https://media.giphy.com/media/Q8OIR3s0hT5p6/200w.gif", "https://media.giphy.com/media/1u0h8ol44trxt4sQy4/200w.gif", "https://media.giphy.com/media/M8Q94NCWLqURTLvRz0/200w.gif", "https://media.giphy.com/media/3q3UscuyLeMjjNdA4B/200w.gif",
+        "https://media.giphy.com/media/C429iD9jGChRm/200w.gif", "https://media.giphy.com/media/ebxoqHclsUoxpMTNhs/200w.gif", "https://media.giphy.com/media/3o7WICu5mCY4VQiLvO/200w.gif", "https://media.giphy.com/media/1jY7WVG0S5TowyqnHp/200w.gif",
+        "https://media.giphy.com/media/b2JVXa63qbPzqRpq0l/200w.gif", "https://media.giphy.com/media/ftvphb1LgYP9SgoNGn/200w.gif", "https://media.giphy.com/media/RhSiIe2u05WOn0obtb/200w.gif", "https://media.giphy.com/media/NM7Dy11xjZmVrUhEKG/200w.gif",
+        "https://media.giphy.com/media/FRfhS8hv0U0Te/200w.gif", "https://media.giphy.com/media/hkymEPMHGWhBugiv8p/200w.gif", "https://media.giphy.com/media/TWH3IIPuGyxsOpOZin/200w.gif", "https://media.giphy.com/media/elCrcdfx6H687MHGgA/200w.gif",
+        "https://media.giphy.com/media/fnvxO81StvLdhd0Tlu/200w.gif", "https://media.giphy.com/media/OaOF4qaaChntPg4xPT/200w.gif", "https://media.giphy.com/media/lUlgyv4olV7UsSgr62/200w.gif", "https://media.giphy.com/media/LnDHgIPEJizyN6rUrB/200w.gif",
+        "https://media.giphy.com/media/7SZwo1ZVPfCGiFEGRx/200w.gif", "https://media.giphy.com/media/3og0IPJ120MRJVJakU/200w.gif", "https://media.giphy.com/media/7EOu3A9mywY2QkWlIn/200w.gif", "https://media.giphy.com/media/6og4vrKakRfLgeU2qX/200w.gif",
+        "https://media.giphy.com/media/GwGpDrBHfZwMf2k2jR/200w.gif", "https://media.giphy.com/media/VsuiH69ecp6XC/200w.gif", "https://media.giphy.com/media/9yV0hVU9VW0hOf18jX/200w.gif", "https://media.giphy.com/media/kAnpk0N9Ph3he/200w.gif",
+        "https://media.giphy.com/media/jbK2wDBCCYbXRhGtg3/200w.gif", "https://media.giphy.com/media/IPveIC11tPfV8Un14N/200w.gif", "https://media.giphy.com/media/8KXshjTuyHTHT4vY23/200w.gif", "https://media.giphy.com/media/hNcjEFphrX9OMNm13d/200w.gif",
+        "https://media.giphy.com/media/BDNxsyOFehbC2RoiAC/200w.gif", "https://media.giphy.com/media/ffkBvDVST82UU/200w.gif", "https://media.giphy.com/media/a4x0oW15kYMFUFChaF/200w.gif", "https://media.giphy.com/media/y080FbSfUKCqF7N4SR/200w.gif",
+        "https://media.giphy.com/media/2ZHVwYMKotNGU/200w.gif", "https://media.giphy.com/media/6IqarrxfsqB7z6cmun/200w.gif", "https://media.giphy.com/media/6klKY9ggNR744/200w.gif", "https://media.giphy.com/media/Lp9zXUTDNEMFFfrRGu/200w.gif",
+        "https://media.giphy.com/media/lv86aOL3XkZC0EadmR/200w.gif", "https://media.giphy.com/media/hTCpzk3dRYODS/200w.gif", "https://media.giphy.com/media/13awhIC2CcDaHC/200w.gif", "https://media.giphy.com/media/FL5PXMFEd8m29xET4k/200w.gif",
+        "https://media.giphy.com/media/PcMXQqcsn2Fz2/200w.gif", "https://media.giphy.com/media/NsEVcrxdaW65eRDT7a/200w.gif", "https://media.giphy.com/media/mxApAaek1ZMjaBL9gP/200w.gif", "https://media.giphy.com/media/hWgeMEUncId9u/200w.gif",
+        "https://media.giphy.com/media/VZ3CrPjypoi5vw5TWh/200w.gif", "https://media.giphy.com/media/l0IsHKjavEvd0ihG0/200w.gif", "https://media.giphy.com/media/A7qa4r2bCcLQDyxQtr/200w.gif", "https://media.giphy.com/media/l2ZE1wggw4l3DjUmk/200w.gif",
+        "https://media.giphy.com/media/DNhtJ6ovLGILrLKQ6M/200w.gif", "https://media.giphy.com/media/3og0ISvpQVLJwOaWv6/200w.gif", "https://media.giphy.com/media/L2ecIZlfBTOU0qx6BB/200w.gif", "https://media.giphy.com/media/3o7qDGOcVjnJw3VAlO/200w.gif",
+        "https://media.giphy.com/media/G8qS6FWvnaZ1uIravb/200w.gif", "https://media.giphy.com/media/3otWpz1I2BSOD0ZHLW/200w.gif", "https://media.giphy.com/media/jhLEOwTuBE0be8KdtQ/200w.gif", "https://media.giphy.com/media/USJtYSGXRqrLE1Xfjr/200w.gif",
+        "https://media.giphy.com/media/QKCHfkaag7xdOHmX68/200w.gif", "https://media.giphy.com/media/7MnhsCyVGOl56/200w.gif", "https://media.giphy.com/media/3o6vXUTbXEqPfCi1SU/200w.gif", "https://media.giphy.com/media/RLGKtqpnwMTaZC1ddd/200w.gif",
+        "https://media.giphy.com/media/3o6ozymuzrBpskGS88/200w.gif", "https://media.giphy.com/media/hT0GGrWMxgNcTWuJBJ/200w.gif", "https://media.giphy.com/media/26FeW67Qa9VFg9qtW/200w.gif", "https://media.giphy.com/media/7nvr3yd6cD1JQpRHE4/200w.gif",
+        "https://media.giphy.com/media/1hzAJSa8SqTq6YK6K4/200w.gif", "https://media.giphy.com/media/xT1R9FRG4m7Eqnjve8/200w.gif", "https://media.giphy.com/media/JSeKYmQxPK6oSrPuL0/200w.gif", "https://media.giphy.com/media/epph2xo3WdTuKRuqr5/200w.gif",
+        "https://media.giphy.com/media/20j3EBaR1BKs73rbz5/200w.gif", "https://media.giphy.com/media/SkpMqAQJqlU04oMHmB/200w.gif", "https://media.giphy.com/media/GoVnCVLbVMeFKu3ZQu/200w.gif", "https://media.giphy.com/media/UXERVHSugbe3C/200w.gif",
+        "https://media.giphy.com/media/YeYANonjpV9cyFQ3nk/200w.gif", "https://media.giphy.com/media/gHoetk8XZmG4fykhLP/200w.gif", "https://media.giphy.com/media/Kfkk8BPdtQceKQUQxq/200w.gif", "https://media.giphy.com/media/3oEjI0zBPtJFnfLCRW/200w.gif",
+        "https://media.giphy.com/media/nFi8KLlFN25v7XiLm6/200w.gif", "https://media.giphy.com/media/Y151ZSXCyraUXfIsGD/200w.gif", "https://media.giphy.com/media/s3yEdQFqxlfi0/200w.gif", "https://media.giphy.com/media/gEZ889qkLI87F343DU/200w.gif",
+        "https://media.giphy.com/media/l0HlDJBzZ1t2k8zgk/200w.gif", "https://media.giphy.com/media/4599UNa1cuKtCW3Qcw/200w.gif", "https://media.giphy.com/media/VqlV27H99BNBQXLOyL/200w.gif", "https://media.giphy.com/media/dgO9VSPWfQvJnKZYpj/200w.gif",
+        "https://media.giphy.com/media/eJ8gnk6FRYHAiXnyN9/200w.gif", "https://media.giphy.com/media/xUPGcHApc5i8nqxVmg/200w.gif", "https://media.giphy.com/media/gMiEooOJ7h3VSgy305/200w.gif", "https://media.giphy.com/media/t79AP82du7eBkprEKA/200w.gif",
+        "https://media.giphy.com/media/jgeBT8lDzAoSdwxBeV/200w.gif", "https://media.giphy.com/media/e5NwTZzPEEqvLnP6iq/200w.gif", "https://media.giphy.com/media/2scfWvb43LXObeJLtD/200w.gif", "https://media.giphy.com/media/9S5fO1stWEV1CsD3V2/200w.gif",
+        "https://media.giphy.com/media/1RoMDgkFP84ixwEozg/200w.gif", "https://media.giphy.com/media/tIFWnAO3cvMAb3LYaO/200w.gif", "https://media.giphy.com/media/Hutx7O9haCMdsOsL8f/200w.gif", "https://media.giphy.com/media/ekMiPZzWe5ion9m6nG/200w.gif",
+        "https://media.giphy.com/media/WlYCRual0iLjvQ7m6b/200w.gif", "https://media.giphy.com/media/CFZ7SGjhfNqP3Sorf5/200w.gif", "https://media.giphy.com/media/xT9Igwm13KlNANjksM/200w.gif", "https://media.giphy.com/media/q664CeEtirtp0T3XoJ/200w.gif",
+        "https://media.giphy.com/media/l0HekFpePMbdAZoOc/200w.gif", "https://media.giphy.com/media/3FTuiBLLN4Z8UZVyYQ/200w.gif", "https://media.giphy.com/media/h02eP3M2ChPDp2QFc6/200w.gif", "https://media.giphy.com/media/TfXr6aBCykBwf8ilSP/200w.gif",
+        "https://media.giphy.com/media/9G59zLRR0GUFIwTJ7V/200w.gif", "https://media.giphy.com/media/ZCGh21bdnNkTNKb4f7/200w.gif", "https://media.giphy.com/media/tLnRdhVE4WQco/200w.gif", "https://media.giphy.com/media/l0MYA2IZHXAMohpWo/200w.gif",
+        "https://media.giphy.com/media/UQruQdxgj0DGRJaUmj/200w.gif", "https://media.giphy.com/media/dqs6clIy3arlA5UVKp/200w.gif", "https://media.giphy.com/media/vD2uqyghAnOuGVaiTx/200w.gif", "https://media.giphy.com/media/p5TwC8OcKHL14gni3Z/200w.gif",
+        "https://media.giphy.com/media/lTczuJhFRyTmTiXZVb/200w.gif", "https://media.giphy.com/media/11pfU6pgmomD3q/200w.gif", "https://media.giphy.com/media/W9ZBJhpsDF5Z5ieUVr/200w.gif", "https://media.giphy.com/media/gww2enBYxSZeAHrdNh/200w.gif",
+        "https://media.giphy.com/media/Xs7tigYjWwhkSFR2Ih/200w.gif", "https://media.giphy.com/media/YleL4CuahrDUpy2aud/200w.gif", "https://media.giphy.com/media/VhzLoDEalePDB5jogn/200w.gif", "https://media.giphy.com/media/fijTEKgja1P4o2PWzK/200w.gif",
+        "https://media.giphy.com/media/XYqkVQuRsmQqMGv9I8/200w.gif", "https://media.giphy.com/media/zFM1I8fSivumc/200w.gif", "https://media.giphy.com/media/3uZE3M8NnVKMBThIGX/200w.gif", "https://media.giphy.com/media/3o85fVNgLSrD2Pro1a/200w.gif",
+        "https://media.giphy.com/media/9KjYC0kEV6DvYOHtih/200w.gif", "https://media.giphy.com/media/xTiTnHojLxy6ihXYDC/200w.gif", "https://media.giphy.com/media/3oEdv8FMZHJMoJXAoE/200w.gif", "https://media.giphy.com/media/1vBa7yvs2snPJBmer9/200w.gif",
+        "https://media.giphy.com/media/LXTvJhkpXovUiukGIG/200w.gif", "https://media.giphy.com/media/cr9LAc31RtxjXEfI97/200w.gif", "https://media.giphy.com/media/RwrIYTec9TIR4H3mw2/200w.gif", "https://media.giphy.com/media/Ntd540kSZYzHKRR2Ww/200w.gif",
+        "https://media.giphy.com/media/22irQdTk71DaGmBUQN/200w.gif", "https://media.giphy.com/media/16oi8GRPSPa9GWoysl/200w.gif", "https://media.giphy.com/media/XECxsV1K9fEdD9RX12/200w.gif", "https://media.giphy.com/media/MW0R1xqdapiblkYKSw/200w.gif",
+        "https://media.giphy.com/media/3oKIPDvXGJD8C4w1sQ/200w.gif", "https://media.giphy.com/media/1UUclZSPTii3Gxoih1/200w.gif", "https://media.giphy.com/media/XejGeOHK54dsio1hOg/200w.gif", "https://media.giphy.com/media/2ZljtZYKWUMfbNPBba/200w.gif",
+        "https://media.giphy.com/media/Vegth4sJPoZRlLhI4Z/200w.gif", "https://media.giphy.com/media/FQez7yhGWDz4LeepC4/200w.gif", "https://media.giphy.com/media/ON6h1He0KIQjIpUXSP/200w.gif", "https://media.giphy.com/media/pidFxV7UKnCIkZCQj2/200w.gif",
+        "https://media.giphy.com/media/E9aslQ0tMrqoNg9Pb0/200w.gif", "https://media.giphy.com/media/1xmBof4wM4QIFlMh2y/200w.gif", "https://media.giphy.com/media/7rOR4Lro01V38isAs1/200w.gif", "https://media.giphy.com/media/7g7zhkRYBQGuIQGln0/200w.gif",
+        "https://media.giphy.com/media/7Oe01gxAHDaPMhk1z3/200w.gif", "https://media.giphy.com/media/aYeTTEaDXvoASGLLoK/200w.gif", "https://media.giphy.com/media/3XRLTkxiBlbvMnOfoi/200w.gif", "https://media.giphy.com/media/Bp4KjH2l4j6SlAzGBq/200w.gif",
+        "https://media.giphy.com/media/hsO5WGxnzLzchrsIT3/200w.gif", "https://media.giphy.com/media/SbfYYPR84VdjV0dzHg/200w.gif", "https://media.giphy.com/media/J5plzsAEvRT5cq7qZa/200w.gif", "https://media.giphy.com/media/VXKK1hVt9m9JSIdfKr/200w.gif",
+        "https://media.giphy.com/media/3mJSSqjq6r8JaRKYbD/200w.gif", "https://media.giphy.com/media/Q7QpcFKQVumR6x6Ihy/200w.gif", "https://media.giphy.com/media/xTiTntUK4iFT7389Hy/200w.gif", "https://media.giphy.com/media/0PREjv4IokFHc4w1Hk/200w.gif",
+        "https://media.giphy.com/media/3o6ZtekN7LuGnulfAQ/200w.gif", "https://media.giphy.com/media/QXvAmVSVhc7EjDwKZl/200w.gif", "https://media.giphy.com/media/kDqnh9fzUqeG9ELleh/200w.gif", "https://media.giphy.com/media/7rhdSyuIhuu6KaEUVf/200w.gif",
+        "https://media.giphy.com/media/svF6PtEMTLr3prA2mS/200w.gif", "https://media.giphy.com/media/ZdQop6a8VeswxhUZ5K/200w.gif", "https://media.giphy.com/media/PlfVpyz7RmP0Iwvr7O/200w.gif", "https://media.giphy.com/media/3oKIP9pWPUQHl1CIX6/200w.gif",
+        "https://media.giphy.com/media/ZAxK7OXP08ox1uTXQU/200w.gif", "https://media.giphy.com/media/ywADVPv2NitJC/200w.gif", "https://media.giphy.com/media/r1YQdSGHcWH7qm0txM/200w.gif", "https://media.giphy.com/media/LYOlHt4ieSl5VqBZhj/200w.gif",
+        "https://media.giphy.com/media/jnoIIY16lF7foqQNRS/200w.gif", "https://media.giphy.com/media/WUa5dYP1t0NhG6PTyv/200w.gif", "https://media.giphy.com/media/RG8cnGMFjTt1gsVYKQ/200w.gif", "https://media.giphy.com/media/2tQTNa3JAbJtDGPmZx/200w.gif",
+        "https://media.giphy.com/media/ZdxvKjrunwylAXqV2u/200w.gif", "https://media.giphy.com/media/uRsishY1b5X0I/200w.gif", "https://media.giphy.com/media/LOQGReulm1W3czZsjX/200w.gif", "https://media.giphy.com/media/vXSe3gP9dkGY/200w.gif",
+        "https://media.giphy.com/media/ZCfndto0ofa0PNb8Nn/200w.gif", "https://media.giphy.com/media/duF4F3xyTR8UaiA1W5/200w.gif", "https://media.giphy.com/media/mwXmSTm8LwM42gSvF6/200w.gif", "https://media.giphy.com/media/26Ff8EEvgywu2eLug/200w.gif",
+        "https://media.giphy.com/media/OUOKgRfp8WKPM6mepd/200w.gif", "https://media.giphy.com/media/OdAvD3s156m6o7OfeN/200w.gif", "https://media.giphy.com/media/3o6nUSj8h8aM5lU7sI/200w.gif", "https://media.giphy.com/media/3oz8xFfInQ63MrKtPO/200w.gif",
+        "https://media.giphy.com/media/ZMP5dNc3GpcXTx51g9/200w.gif", "https://media.giphy.com/media/3oFzm9HYAqRWht1n8c/200w.gif", "https://media.giphy.com/media/xUNda8fdUDThyTM5uU/200w.gif", "https://media.giphy.com/media/9KQ86aWlLIpG/200w.gif",
+        "https://media.giphy.com/media/xUOwGp1m4l2WAsQpqM/200w.gif", "https://media.giphy.com/media/26EAa9ddOKVCo/200w.gif", "https://media.giphy.com/media/l4EpgSChD9fa49ag0/200w.gif", "https://media.giphy.com/media/O1eP1qjiFzvpCdXa4J/200w.gif",
+        "https://media.giphy.com/media/tpUOwsIBlBHbkQOZ3X/200w.gif", "https://media.giphy.com/media/V8qvV7Aiy65IEg2FJs/200w.gif", "https://media.giphy.com/media/3o7TKK87v4I5UsQqtO/200w.gif", "https://media.giphy.com/media/vggz6qn0uRlhM0knb2/200w.gif",
+        "https://media.giphy.com/media/3ohjVafagUugEBRp3W/200w.gif", "https://media.giphy.com/media/GGUFJCogJPRoA/200w.gif", "https://media.giphy.com/media/vkgat5gBrjSjEqW4Zl/200w.gif", "https://media.giphy.com/media/Xbz4UkY7PgLMLlvUlO/200w.gif",
+        "https://media.giphy.com/media/ro7BrXRJ3ZlOE/200w.gif", "https://media.giphy.com/media/xmsy76bUSmH0xHtvnK/200w.gif", "https://media.giphy.com/media/sHykvLOpVXjJS/200w.gif", "https://media.giphy.com/media/7j8V7IQMkZ7MH5jUPt/200w.gif",
+        "https://media.giphy.com/media/eA4xFrbcYCoGECnPcP/200w.gif", "https://media.giphy.com/media/YTEAn0boXGmY0/200w.gif", "https://media.giphy.com/media/l3mZsTdJdmaQwXqik/200w.gif", "https://media.giphy.com/media/bThz1QhRo8mEo/200w.gif",
+        "https://media.giphy.com/media/xUOxeZxULyf8BTIweI/200w.gif", "https://media.giphy.com/media/8PBBRBA3FFR33EaQZD/200w.gif", "https://media.giphy.com/media/LW2U1J5qXLwnWDWiC4/200w.gif", "https://media.giphy.com/media/XHxKfeYofj5nNRcpYn/200w.gif",
+        "https://media.giphy.com/media/l2QZQ5NkLXrtjeXrG/200w.gif", "https://media.giphy.com/media/l2SqiwfpSsxmFtySY/200w.gif", "https://media.giphy.com/media/l3q2CnDouMuvhl6AE/200w.gif", "https://media.giphy.com/media/Z9aZn3VCtKXWXQBoE6/200w.gif",
+        "https://media.giphy.com/media/3o7abGt6ArotO3ItEc/200w.gif", "https://media.giphy.com/media/dCD0wIbOECrECcczjT/200w.gif", "https://media.giphy.com/media/7STsovNtkNkwRNd0gf/200w.gif", "https://media.giphy.com/media/TG9xpYz1viX19vQMsB/200w.gif",
+        "https://media.giphy.com/media/2EKm9LYjesqCRQMO49/200w.gif", "https://media.giphy.com/media/wyPnP9ZQccZa/200w.gif", "https://media.giphy.com/media/1rK68yfkG1Q8Aw87Lv/200w.gif", "https://media.giphy.com/media/WgOjuKF1D7JZ8Jksse/200w.gif",
+        "https://media.giphy.com/media/26xBBTXLFs7sggvbq/200w.gif", "https://media.giphy.com/media/UpDIzeetTL0Dbi7f6T/200w.gif", "https://media.giphy.com/media/l0Exjqf1kkxMrK3qE/200w.gif", "https://media.giphy.com/media/oNweJc8x3AN17KVkTV/200w.gif",
+        "https://media.giphy.com/media/kdjI8XDa6ltOLIyAYb/200w.gif", "https://media.giphy.com/media/Gk4pKP29z8LKPXSxUx/200w.gif", "https://media.giphy.com/media/zKWuv4VSsptZMyZM84/200w.gif", "https://media.giphy.com/media/Y4hP60unj6U3PtkMUn/200w.gif",
+        "https://media.giphy.com/media/0WPKSd4ZmAJqAht12B/200w.gif", "https://media.giphy.com/media/DuXwgoETitiBvGHjnZ/200w.gif", "https://media.giphy.com/media/jb4c8vrhYyOn4NTcWQ/200w.gif", "https://media.giphy.com/media/3Fd6WbV7N75gjDgrXn/200w.gif",
+        "https://media.giphy.com/media/jKbIVeiZx7FtC1TB1P/200w.gif", "https://media.giphy.com/media/PS01HvYz6cS5jL0ILY/200w.gif"
+    ];
 
-    function loadEta() {
-        try {
-            var h = JSON.parse(localStorage.getItem(ETA_KEY) || '[]');
-            if (h.length) {
-                var sum = 0;
-                for (var i = 0; i < h.length; i++) sum += h[i];
-                return sum / h.length;
-            }
-        } catch (e) {}
-        return 35000;
+    var validGifs = [];
+    var gifPoolIdx = 0;
+    var gifPoolActive = false;
+
+    function warmGifPool() {
+        if (gifPoolActive) return;
+        gifPoolActive = true;
+        function step() {
+            if (gifPoolIdx >= LOADING_GIFS.length) return;
+            var url = LOADING_GIFS[gifPoolIdx++];
+            var img = new Image();
+            img.onload = function() { validGifs.push(url); };
+            img.onerror = function() { };
+            img.src = url;
+            setTimeout(step, 120);
+        }
+        step();
     }
 
-    function recordDuration(ms) {
-        try {
-            var h = JSON.parse(localStorage.getItem(ETA_KEY) || '[]');
-            h.push(Math.max(ms, 3000));
-            if (h.length > 5) h = h.slice(-5);
-            localStorage.setItem(ETA_KEY, JSON.stringify(h));
-        } catch (e) {}
+    var LOADING_PHRASES = [
+        ['1/7', 'O site da prefeitura foi consultado e o PDF de hoje já foi localizado.'],
+        ['2/7', 'Enviando o diário oficial para o Google Gemini, a IA que vai ler tudo para você.'],
+        ['3/7', 'O diário pode ter dezenas ou até centenas de páginas. Cada uma precisa ser lida com atenção — por isso esta etapa leva alguns minutos.'],
+        ['4/7', 'A IA está identificando portarias, nomeações, exonerações, editais e licitações.'],
+        ['5/7', 'Ela confere as datas, evita repetições e se certifica de que nada importante ficou de fora.'],
+        ['6/7', 'Redigindo o resumo em linguagem jornalística, do jeito que você lê no Diário Reduzido.'],
+        ['7/7', 'Quase pronto! Formatação final e publicação. Vale a pena esperar: são centenas de páginas analisadas.'],
+    ];
+    var loadingPhraseTimer = null;
+
+    function stopLoadingPhrases() {
+        if (loadingPhraseTimer) { clearInterval(loadingPhraseTimer); loadingPhraseTimer = null; }
     }
 
-    function makeProgress(label, sub) {
+    function startLoadingPhrases() {
+        var el = document.getElementById('loadingPhrases');
+        var gif = document.getElementById('loadingGif');
+        if (!el) return;
+        var pidx = 0;
+        var gidx = -1;
+        var showPhrase = function() {
+            el.innerHTML = '<span class="phase-num">' + LOADING_PHRASES[pidx][0] + '</span>' + LOADING_PHRASES[pidx][1];
+        };
+        var showGif = function() {
+            if (!gif || !validGifs.length) return;
+            gidx = (gidx + 1) % validGifs.length;
+            gif.src = validGifs[gidx];
+        };
+        warmGifPool();
+        showPhrase();
+        showGif();
+        stopLoadingPhrases();
+        loadingPhraseTimer = setInterval(function() {
+            pidx = (pidx + 1) % LOADING_PHRASES.length;
+            showPhrase();
+            showGif();
+        }, 6000);
+    }
+
+    function makeProgress(label) {
         var overlay = document.getElementById('loadingOverlay');
-        var fill = document.getElementById('progressFill');
-        var text = document.getElementById('progressText');
-        overlay.querySelector('.loading-text').textContent = label;
-        overlay.querySelector('.loading-sub').textContent = sub;
-        var start = Date.now();
-        var eta = loadEta();
-        var lastPct = 0;
+        overlay.querySelector('.loading-text').textContent = label || 'Buscando o diário de hoje...';
         overlay.classList.add('active');
-        fill.style.width = '0%';
-        fill.style.background = 'linear-gradient(90deg, #e8a317, #f5d6c6)';
-        text.textContent = '0%';
-        var interval = setInterval(function() {
-            var elapsed = Date.now() - start;
-            var t = elapsed / eta;
-            var target;
-            if (t < 1) {
-                target = 98 * Math.pow(t, 1.5);
-            } else {
-                target = 98 + (1 - Math.exp(-(t - 1) * 3));
-            }
-            target = Math.min(target, 99);
-            var minInc = pedalBoostActive ? 0.9 : 0.35;
-            if (target < lastPct + minInc) target = Math.min(lastPct + minInc, 99);
-            lastPct = target;
-            fill.style.width = lastPct + '%';
-            text.textContent = Math.round(lastPct) + '%';
-        }, 300);
-        function stop(record) {
-            clearInterval(interval);
-            if (record) recordDuration(Date.now() - start);
+        startLoadingPhrases();
+        function hide() {
+            stopLoadingPhrases();
+            overlay.classList.remove('active');
         }
         return {
-            done: function() {
-                stop(true);
-                fill.style.width = '100%';
-                text.textContent = '100%';
-                setTimeout(function() { overlay.classList.remove('active'); location.reload(); }, 600);
-            },
-            doneNoReload: function() {
-                stop(true);
-                fill.style.width = '100%';
-                text.textContent = '100%';
-                setTimeout(function() { overlay.classList.remove('active'); }, 500);
-            },
-            hide: function() {
-                stop(false);
-                overlay.classList.remove('active');
-            },
+            done: function() { hide(); setTimeout(function() { location.reload(); }, 600); },
+            doneNoReload: function() { hide(); },
+            hide: hide,
             fail: function(msg) {
-                stop(false);
-                fill.style.width = '100%';
-                fill.style.background = '#c0392b';
-                text.textContent = msg || 'Erro';
-                setTimeout(function() {
-                    overlay.classList.remove('active');
-                    fill.style.background = 'linear-gradient(90deg, #e8a317, #f5d6c6)';
-                }, 2000);
+                stopLoadingPhrases();
+                var el = document.getElementById('loadingPhrases');
+                if (el) el.innerHTML = '<span class="phase-err">' + (msg || 'Erro') + '</span>';
+                setTimeout(hide, 2500);
             }
         };
     }
@@ -745,28 +731,6 @@
                     p.fail('Erro');
                 }
             }).catch(function() { p.fail('Erro'); });
-        }
-
-        var pedalBtn = document.getElementById('pedalBtn');
-        var bikeScene = document.querySelector('.bike-scene');
-        if (pedalBtn && bikeScene) {
-            var boostFactor = 1;
-            var boostTimer = null;
-            pedalBtn.addEventListener('click', function() {
-                boostFactor = Math.min(boostFactor + 0.75, 5);
-                bikeScene.style.setProperty('--boost', boostFactor);
-                pedalBoostActive = true;
-                pedalBtn.classList.add('boost-on');
-                pedalBtn.textContent = 'Pedalando!';
-                if (boostTimer) clearTimeout(boostTimer);
-                boostTimer = setTimeout(function() {
-                    boostFactor = 1;
-                    bikeScene.style.setProperty('--boost', 1);
-                    pedalBoostActive = false;
-                    pedalBtn.classList.remove('boost-on');
-                    pedalBtn.textContent = 'Pedalar mais forte';
-                }, 2000);
-            });
         }
 
         document.querySelectorAll('.fav-btn').forEach(function(btn) {
