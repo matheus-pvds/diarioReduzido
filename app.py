@@ -1,9 +1,11 @@
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for, abort
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for, abort, flash
 from flask_sqlalchemy import SQLAlchemy
 from processor import GeminiClient
 from asaas import create_customer, create_payment, process_webhook, tokenize_credit_card
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 import json, os, requests, bs4, secrets, random, smtplib
 from datetime import datetime, date, timedelta, timezone
 import re, markdown, time, traceback
@@ -90,6 +92,8 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(200), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
+    google_id = db.Column(db.String(200), unique=True, nullable=True)
+    password_set = db.Column(db.Boolean, default=False)
     is_paid = db.Column(db.Boolean, default=False)
     requests_made = db.Column(db.Integer, default=0)
     email_verified = db.Column(db.Boolean, default=False)
@@ -595,7 +599,7 @@ def add_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.google.com https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline'; img-src 'self' data: https://media.giphy.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self'; frame-src 'self' https://www.google.com"
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.google.com https://www.gstatic.com https://accounts.google.com; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline'; img-src 'self' data: https://media.giphy.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://accounts.google.com; frame-src 'self' https://www.google.com https://accounts.google.com"
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
     return response
@@ -604,7 +608,7 @@ def add_security_headers(response):
 def inject_security():
     if 'csrf_token' not in session:
         session['csrf_token'] = secrets.token_hex(32)
-    return dict(csrf_token=session['csrf_token'])
+    return dict(csrf_token=session['csrf_token'], google_client_id=GOOGLE_CLIENT_ID)
 
 def login_required(f):
     @wraps(f)
@@ -684,6 +688,7 @@ def should_show_captcha(ip):
 
 RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '')
 RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '')
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 
 def _captcha_disabled():
     return app.config.get('TESTING') or RECAPTCHA_SITE_KEY or app.debug or os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG', '').lower() == 'true'
@@ -1289,7 +1294,7 @@ def register():
         if User.query.filter_by(email=email).first():
             return render_template('login.html', registering=True, error='E-mail já cadastrado.', captcha_question=captcha_q, recaptcha_site_key=RECAPTCHA_SITE_KEY)
         token = secrets.token_urlsafe(48)
-        user = User(username=username, email=email, password=generate_password_hash(password), verification_token=token, streak_freezes=3)
+        user = User(username=username, email=email, password=generate_password_hash(password), verification_token=token, streak_freezes=3, password_set=True)
         db.session.add(user)
         db.session.commit()
         base_url = request.host_url.rstrip('/')
@@ -1302,6 +1307,66 @@ def register():
         return redirect(url_for('dashboard'))
     ip = get_client_ip()
     return render_template('login.html', registering=True, captcha_question=generate_captcha() if should_show_captcha(ip) else None, recaptcha_site_key=RECAPTCHA_SITE_KEY)
+
+def _unique_username(base):
+    base = re.sub(r'[^A-Za-z0-9_.-]', '', base or '').strip('._-')[:20]
+    if not base:
+        base = 'leitor'
+    if len(base) < 3:
+        base = 'leitor_' + base
+    candidate = base
+    i = 2
+    while User.query.filter_by(username=candidate).first():
+        candidate = f'{base}{i}'
+        i += 1
+    return candidate
+
+@app.route('/api/google-login', methods=['POST'])
+def google_login():
+    if not GOOGLE_CLIENT_ID:
+        return jsonify({'error': 'Login com Google não configurado.'}), 400
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    credential = request.form.get('credential', '')
+    if not credential:
+        return jsonify({'error': 'Credencial inválida.'}), 400
+    try:
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), GOOGLE_CLIENT_ID)
+    except Exception as e:
+        print(f'Erro ao verificar token Google: {e}')
+        return jsonify({'error': 'Não foi possível validar a conta Google.'}), 400
+    email = (idinfo.get('email') or '').strip().lower()
+    sub = str(idinfo.get('sub') or '').strip()
+    if not email or not idinfo.get('email_verified'):
+        return jsonify({'error': 'Conta Google sem e-mail verificado.'}), 400
+    user = None
+    if sub:
+        user = User.query.filter_by(google_id=sub).first()
+    if not user:
+        user = User.query.filter_by(email=email).first()
+    if user:
+        if sub and user.google_id != sub:
+            user.google_id = sub
+        user.email_verified = True
+        if user.email != email:
+            other = User.query.filter_by(email=email).first()
+            if not other:
+                user.email = email
+        db.session.commit()
+    else:
+        username = _unique_username(idinfo.get('name') or email.split('@')[0])
+        user = User(username=username, email=email,
+                    password=generate_password_hash(secrets.token_urlsafe(32)),
+                    email_verified=True, streak_freezes=3, google_id=sub)
+        db.session.add(user)
+        db.session.commit()
+    session['user_id'] = user.id
+    update_streak(user)
+    record_attempt(get_client_ip(), True)
+    nxt = request.form.get('next', '')
+    if nxt and nxt.startswith('/') and not nxt.startswith('//'):
+        return jsonify({'redirect': nxt})
+    return jsonify({'redirect': url_for('dashboard')})
 
 @app.route('/logout')
 def logout():
@@ -1350,6 +1415,7 @@ def reset(token):
         if password != confirm:
             return render_template('reset.html', token=token, error='Senhas não conferem.', recaptcha_site_key=RECAPTCHA_SITE_KEY)
         user.password = generate_password_hash(password)
+        user.password_set = True
         user.reset_token = None
         user.reset_token_expires = None
         db.session.commit()
@@ -1925,6 +1991,96 @@ def update_font():
     user.font = font_id if font_id != 'default' else None
     db.session.commit()
     return redirect(request.referrer or url_for('dashboard'))
+
+@app.route('/update-username', methods=['POST'])
+@login_required
+def update_username():
+    if not validate_csrf():
+        flash('Token inválido. Recarregue a página.', 'error')
+        return redirect(url_for('dashboard'))
+    user = get_current_user()
+    if user.username == 'admin':
+        flash('A conta de administrador não pode ser renomeada.', 'error')
+        return redirect(url_for('dashboard'))
+    username = request.form.get('username', '').strip()
+    if len(username) < 3 or len(username) > 80:
+        flash('Usuário deve ter 3-80 caracteres.', 'error')
+        return redirect(url_for('dashboard'))
+    if not re.match(r'^[A-Za-z0-9_.-]+$', username):
+        flash('Usuário só pode conter letras, números, ponto, traço e sublinhado.', 'error')
+        return redirect(url_for('dashboard'))
+    if username == user.username:
+        flash('Nome de usuário não alterado.', 'success')
+        return redirect(url_for('dashboard'))
+    if User.query.filter(User.username == username, User.id != user.id).first():
+        flash('Este nome de usuário já está em uso.', 'error')
+        return redirect(url_for('dashboard'))
+    user.username = username
+    db.session.commit()
+    flash('Nome de usuário atualizado com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/update-email', methods=['POST'])
+@login_required
+def update_email():
+    if not validate_csrf():
+        flash('Token inválido. Recarregue a página.', 'error')
+        return redirect(url_for('dashboard'))
+    user = get_current_user()
+    if user.username == 'admin':
+        flash('A conta de administrador não pode ter o e-mail alterado.', 'error')
+        return redirect(url_for('dashboard'))
+    email = request.form.get('email', '').strip().lower()
+    if not email or '@' not in email:
+        flash('E-mail inválido.', 'error')
+        return redirect(url_for('dashboard'))
+    if email == user.email:
+        flash('E-mail não alterado.', 'success')
+        return redirect(url_for('dashboard'))
+    if User.query.filter(User.email == email, User.id != user.id).first():
+        flash('Este e-mail já está em uso.', 'error')
+        return redirect(url_for('dashboard'))
+    token = secrets.token_urlsafe(48)
+    sent = False
+    if SMTP_HOST:
+        verify_link = f'{request.host_url.rstrip("/")}/verify-email/{token}'
+        sent = send_email(email, 'Confirme seu novo e-mail - Diário Reduzido',
+            f'Olá {user.username},\n\nConfirme seu novo e-mail clicando no link abaixo:\n{verify_link}\n\nSe não foi você, ignore esta mensagem.')
+    user.email = email
+    user.verification_token = token if sent else None
+    user.email_verified = not sent
+    db.session.commit()
+    if sent:
+        flash('E-mail alterado. Confirme no link enviado ao novo endereço.', 'success')
+    else:
+        flash('E-mail atualizado com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/update-password', methods=['POST'])
+@login_required
+def update_password():
+    if not validate_csrf():
+        flash('Token inválido. Recarregue a página.', 'error')
+        return redirect(url_for('dashboard'))
+    user = get_current_user()
+    new_password = request.form.get('new_password', '')
+    confirm = request.form.get('confirm_password', '')
+    if len(new_password) < 4:
+        flash('A nova senha deve ter no mínimo 4 caracteres.', 'error')
+        return redirect(url_for('dashboard'))
+    if new_password != confirm:
+        flash('As senhas não conferem.', 'error')
+        return redirect(url_for('dashboard'))
+    if user.password_set:
+        current = request.form.get('current_password', '')
+        if not check_password_hash(user.password, current):
+            flash('Senha atual incorreta.', 'error')
+            return redirect(url_for('dashboard'))
+    user.password = generate_password_hash(new_password)
+    user.password_set = True
+    db.session.commit()
+    flash('Senha atualizada com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
 
 app.jinja_env.globals.update(get_user_title=get_user_title, BADGES=BADGES, STREAK_THEMES=STREAK_THEMES, get_unlocked_themes=get_unlocked_themes, get_theme_price=get_theme_price, STREAK_FONTS=STREAK_FONTS, get_unlocked_fonts=get_unlocked_fonts, get_font_css=get_font_css, get_font_name=get_font_name, COMBOS=COMBOS, get_all_font_urls=get_all_font_urls, get_user_font_url=get_user_font_url, PLAN_VALUES=PLAN_VALUES, PLAN_DAYS=PLAN_DAYS, BADGE_PRICE=BADGE_PRICE, PIX_PAYLOAD=PIX_PAYLOAD, PIX_QR_IMAGE=PIX_QR_IMAGE)
 

@@ -49,6 +49,15 @@
         .search-form input[type=date] { padding: 0.6rem; font-family: 'Crimson Pro', serif; font-size: 0.95rem; border: 1px solid var(--border-light); background: white; flex: 1; min-width: 180px; }
         .search-form button { background: var(--ink-color); color: #fff; border: none; padding: 0.6rem 1.5rem; font-family: 'Playfair Display', serif; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
         .search-form button:hover { background: var(--accent-red); }
+        .flash { padding: 0.7rem 1rem; margin-bottom: 1rem; font-size: 0.9rem; border-left: 4px solid var(--border-light); background: #f9f7f1; }
+        .flash.success { border-color: var(--green); color: var(--green); }
+        .flash.error { border-color: var(--accent-red); color: var(--accent-red); }
+        .settings-form label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin: 0.8rem 0 0.3rem; }
+        .settings-form input[type=text], .settings-form input[type=email], .settings-form input[type=password] { width: 100%; padding: 0.6rem; font-family: 'Crimson Pro', serif; font-size: 1rem; border: 1px solid var(--border-light); background: white; }
+        .settings-form button { background: var(--ink-color); color: #fff; border: none; padding: 0.5rem 1.5rem; margin-top: 0.8rem; font-family: 'Playfair Display', serif; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .settings-form button:hover { background: var(--accent-red); }
+        .settings-form .hint { font-size: 0.85rem; color: #888; font-style: italic; margin-bottom: 0.5rem; }
+        .settings-sep { border: none; border-top: 1px dashed var(--border-light); margin: 1.5rem 0; }
         .nav-links { display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
         .nav-links a { color: var(--accent-red); text-decoration: underline; font-size: 0.9rem; }
         .points-bar { margin-top: 1rem; }
@@ -196,7 +205,53 @@
                     <div class="label">Streak Freezes</div>
                     <div class="value">{{ streak_freezes }}</div>
                 </div>
+                {% if user.google_id %}
+                <div class="info-item">
+                    <div class="label">Login</div>
+                    <div class="value" style="font-size:0.85rem;">Conectado com Google &#128274;</div>
+                </div>
+                {% endif %}
             </div>
+        </div>
+
+        <div class="card">
+            <h2>&#9881;&#65039; Configurações da conta</h2>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <p class="flash {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <form method="post" action="/update-username" class="settings-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label for="settings_username">Nome de usuário (único)</label>
+                <input type="text" id="settings_username" name="username" value="{{ user.username }}" required minlength="3" maxlength="80" autocomplete="username">
+                <button type="submit">Salvar nome</button>
+            </form>
+            <hr class="settings-sep">
+            <form method="post" action="/update-email" class="settings-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label for="settings_email">E-mail</label>
+                <input type="email" id="settings_email" name="email" value="{{ user.email }}" required autocomplete="email">
+                <button type="submit">Salvar e-mail</button>
+            </form>
+            <hr class="settings-sep">
+            <form method="post" action="/update-password" class="settings-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                {% if not user.password_set %}
+                <p class="hint">Conta criada via Google: defina uma senha para entrar também com e-mail e senha.</p>
+                {% endif %}
+                {% if user.password_set %}
+                <label for="settings_current_password">Senha atual</label>
+                <input type="password" id="settings_current_password" name="current_password" autocomplete="current-password">
+                {% endif %}
+                <label for="settings_new_password">Nova senha</label>
+                <input type="password" id="settings_new_password" name="new_password" required minlength="4" autocomplete="new-password">
+                <label for="settings_confirm_password">Confirmar nova senha</label>
+                <input type="password" id="settings_confirm_password" name="confirm_password" required minlength="4" autocomplete="new-password">
+                <button type="submit">Salvar senha</button>
+            </form>
         </div>
 
         <div class="card">

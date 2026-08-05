@@ -2,6 +2,7 @@ flask
 flask-sqlalchemy
 psycopg2-binary
 google-genai
+google-auth
 python-dotenv
 requests
 beautifulsoup4

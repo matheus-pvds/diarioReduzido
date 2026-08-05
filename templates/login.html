@@ -22,6 +22,10 @@
         button:hover { background: var(--accent-red); }
         .error { color: var(--accent-red); margin-bottom: 1rem; font-style: italic; }
         .back-link { display: block; margin-top: 2rem; font-size: 0.9rem; color: #666; text-decoration: underline; }
+        .divider { display: flex; align-items: center; margin: 1.5rem 0; color: #999; font-size: 0.85rem; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border-light); }
+        .divider span { margin: 0 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
+        #google-btn { display: flex; justify-content: center; margin-bottom: 0.5rem; }
     </style>
 </head>
 <body>
@@ -35,6 +39,10 @@
             {% endif %}
         </p>
         {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        {% if google_client_id %}
+        <div id="google-btn"></div>
+        <div class="divider"><span>ou</span></div>
+        {% endif %}
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-group">
@@ -76,6 +84,45 @@
     </div>
     {% if recaptcha_site_key %}
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    {% endif %}
+    {% if google_client_id %}
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        function handleGoogleCredential(response) {
+            if (!response || !response.credential) return;
+            var formData = new FormData();
+            formData.append('credential', response.credential);
+            formData.append('csrf_token', '{{ csrf_token }}');
+            var next = new URLSearchParams(window.location.search).get('next');
+            if (next) formData.append('next', next);
+            fetch('/api/google-login', { method: 'POST', body: formData })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.redirect) { window.location.href = data.redirect; }
+                    else { alert(data.error || 'Erro ao entrar com Google.'); }
+                })
+                .catch(function () { alert('Erro de rede. Tente novamente.'); });
+        }
+        window.addEventListener('load', function () {
+            if (window.google && google.accounts && google.accounts.id) {
+                google.accounts.id.initialize({
+                    client_id: '{{ google_client_id }}',
+                    callback: handleGoogleCredential,
+                    auto_select: false
+                });
+                google.accounts.id.renderButton(
+                    document.getElementById('google-btn'),
+                    {
+                        theme: 'outline',
+                        size: 'large',
+                        width: 300,
+                        shape: 'rectangular',
+                        text: '{{ "signup_with" if registering else "continue_with" }}'
+                    }
+                );
+            }
+        });
+    </script>
     {% endif %}
 </body>
 </html>
