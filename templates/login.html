@@ -26,6 +26,13 @@
         .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border-light); }
         .divider span { margin: 0 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
         #google-btn { display: flex; justify-content: center; margin-bottom: 0.5rem; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-box { background: var(--paper-color); padding: 2rem; max-width: 380px; width: 90%; text-align: center; border: 1px solid #ddd; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+        .modal-box h3 { font-family: 'Playfair Display', serif; font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .modal-sub { font-size: 0.95rem; margin-bottom: 1rem; color: #666; }
+        .modal-box .form-group { text-align: left; }
+        .modal-cancel { background: none; border: 1px solid var(--border-light); color: #888; padding: 0.5rem 1.5rem; margin-top: 0.8rem; font-size: 0.85rem; cursor: pointer; }
+        .modal-cancel:hover { border-color: var(--accent-red); color: var(--accent-red); }
     </style>
 </head>
 <body>
@@ -82,44 +89,116 @@
         {% endif %}
         <a href="/" class="back-link">Voltar ao início</a>
     </div>
+    {% if google_client_id %}
+    <div id="google-username-modal" class="modal">
+        <div class="modal-box">
+            <h3>Quase lá!</h3>
+            <p class="modal-sub">Escolha um nome de usuário para criar sua conta:</p>
+            <p id="google-username-error" class="error" style="display:none;"></p>
+            <form id="google-username-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="form-group">
+                    <label for="google_username">Usuário</label>
+                    <input type="text" id="google_username" name="username" required minlength="3" maxlength="80" autocomplete="username">
+                </div>
+                <button type="submit">Criar conta</button>
+            </form>
+            <button type="button" id="google-cancel" class="modal-cancel">Cancelar</button>
+        </div>
+    </div>
+    {% endif %}
     {% if recaptcha_site_key %}
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     {% endif %}
     {% if google_client_id %}
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
+        var pendingGoogleCredential = null;
+        var pendingGoogleNext = '';
+
+        function getGoogleNext() {
+            return new URLSearchParams(window.location.search).get('next') || '';
+        }
+
+        function submitGoogle(formData) {
+            return fetch('/api/google-login', { method: 'POST', body: formData })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.redirect) { window.location.href = data.redirect; }
+                    else if (data.needs_username) {
+                        pendingGoogleCredential = formData.get('credential');
+                        pendingGoogleNext = formData.get('next') || '';
+                        document.getElementById('google_username').value = data.suggested_username || '';
+                        document.getElementById('google-username-error').style.display = 'none';
+                        document.getElementById('google-username-modal').style.display = 'flex';
+                        document.getElementById('google_username').focus();
+                    } else {
+                        alert(data.error || 'Erro ao entrar com Google.');
+                    }
+                })
+                .catch(function () { alert('Erro de rede. Tente novamente.'); });
+        }
+
         function handleGoogleCredential(response) {
             if (!response || !response.credential) return;
             var formData = new FormData();
             formData.append('credential', response.credential);
             formData.append('csrf_token', '{{ csrf_token }}');
-            var next = new URLSearchParams(window.location.search).get('next');
+            var next = getGoogleNext();
             if (next) formData.append('next', next);
-            fetch('/api/google-login', { method: 'POST', body: formData })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.redirect) { window.location.href = data.redirect; }
-                    else { alert(data.error || 'Erro ao entrar com Google.'); }
-                })
-                .catch(function () { alert('Erro de rede. Tente novamente.'); });
+            submitGoogle(formData);
         }
-        window.addEventListener('load', function () {
-            if (window.google && google.accounts && google.accounts.id) {
-                google.accounts.id.initialize({
-                    client_id: '{{ google_client_id }}',
-                    callback: handleGoogleCredential,
-                    auto_select: false
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.google || !google.accounts || !google.accounts.id) return;
+            google.accounts.id.initialize({
+                client_id: '{{ google_client_id }}',
+                callback: handleGoogleCredential,
+                auto_select: false
+            });
+            google.accounts.id.renderButton(
+                document.getElementById('google-btn'),
+                {
+                    theme: 'outline',
+                    size: 'large',
+                    width: 300,
+                    shape: 'rectangular',
+                    text: '{{ "signup_with" if registering else "continue_with" }}'
+                }
+            );
+
+            var form = document.getElementById('google-username-form');
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    var btn = form.querySelector('button[type=submit]');
+                    btn.disabled = true;
+                    var data = new FormData(form);
+                    data.append('credential', pendingGoogleCredential || '');
+                    if (pendingGoogleNext) data.append('next', pendingGoogleNext);
+                    fetch('/api/google-signup', { method: 'POST', body: data })
+                        .then(function (r) { return r.json(); })
+                        .then(function (res) {
+                            if (res.redirect) { window.location.href = res.redirect; }
+                            else {
+                                btn.disabled = false;
+                                var errEl = document.getElementById('google-username-error');
+                                errEl.textContent = res.error || 'Erro ao criar a conta.';
+                                errEl.style.display = 'block';
+                            }
+                        })
+                        .catch(function () {
+                            btn.disabled = false;
+                            alert('Erro de rede. Tente novamente.');
+                        });
                 });
-                google.accounts.id.renderButton(
-                    document.getElementById('google-btn'),
-                    {
-                        theme: 'outline',
-                        size: 'large',
-                        width: 300,
-                        shape: 'rectangular',
-                        text: '{{ "signup_with" if registering else "continue_with" }}'
-                    }
-                );
+            }
+            var cancel = document.getElementById('google-cancel');
+            if (cancel) {
+                cancel.addEventListener('click', function () {
+                    document.getElementById('google-username-modal').style.display = 'none';
+                    pendingGoogleCredential = null;
+                });
             }
         });
     </script>

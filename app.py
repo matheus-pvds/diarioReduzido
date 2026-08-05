@@ -1321,6 +1321,28 @@ def _unique_username(base):
         i += 1
     return candidate
 
+def _verify_google_credential(credential):
+    try:
+        return id_token.verify_oauth2_token(credential, google_requests.Request(), GOOGLE_CLIENT_ID)
+    except Exception as e:
+        print(f'Erro ao verificar token Google: {e}')
+        return None
+
+def _google_email_and_sub(idinfo):
+    email = (idinfo.get('email') or '').strip().lower()
+    sub = str(idinfo.get('sub') or '').strip()
+    if not email or not idinfo.get('email_verified'):
+        return None, None
+    return email, sub
+
+def _google_user(email, sub):
+    user = None
+    if sub:
+        user = User.query.filter_by(google_id=sub).first()
+    if not user:
+        user = User.query.filter_by(email=email).first()
+    return user
+
 @app.route('/api/google-login', methods=['POST'])
 def google_login():
     if not GOOGLE_CLIENT_ID:
@@ -1330,31 +1352,63 @@ def google_login():
     credential = request.form.get('credential', '')
     if not credential:
         return jsonify({'error': 'Credencial inválida.'}), 400
-    try:
-        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), GOOGLE_CLIENT_ID)
-    except Exception as e:
-        print(f'Erro ao verificar token Google: {e}')
+    idinfo = _verify_google_credential(credential)
+    if idinfo is None:
         return jsonify({'error': 'Não foi possível validar a conta Google.'}), 400
-    email = (idinfo.get('email') or '').strip().lower()
-    sub = str(idinfo.get('sub') or '').strip()
-    if not email or not idinfo.get('email_verified'):
+    email, sub = _google_email_and_sub(idinfo)
+    if not email:
         return jsonify({'error': 'Conta Google sem e-mail verificado.'}), 400
-    user = None
-    if sub:
-        user = User.query.filter_by(google_id=sub).first()
+    user = _google_user(email, sub)
     if not user:
-        user = User.query.filter_by(email=email).first()
+        return jsonify({
+            'needs_username': True,
+            'suggested_username': _unique_username(idinfo.get('name') or email.split('@')[0]),
+        })
+    if sub and user.google_id != sub:
+        user.google_id = sub
+    user.email_verified = True
+    if user.email != email:
+        other = User.query.filter_by(email=email).first()
+        if not other:
+            user.email = email
+    db.session.commit()
+    session['user_id'] = user.id
+    update_streak(user)
+    record_attempt(get_client_ip(), True)
+    nxt = request.form.get('next', '')
+    if nxt and nxt.startswith('/') and not nxt.startswith('//'):
+        return jsonify({'redirect': nxt})
+    return jsonify({'redirect': url_for('dashboard')})
+
+@app.route('/api/google-signup', methods=['POST'])
+def google_signup():
+    if not GOOGLE_CLIENT_ID:
+        return jsonify({'error': 'Login com Google não configurado.'}), 400
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    credential = request.form.get('credential', '')
+    username = request.form.get('username', '').strip()
+    if not credential:
+        return jsonify({'error': 'Sessão expirada. Tente entrar com Google novamente.'}), 400
+    if len(username) < 3 or len(username) > 80:
+        return jsonify({'error': 'Usuário deve ter 3-80 caracteres.'}), 400
+    if not re.match(r'^[A-Za-z0-9_.-]+$', username):
+        return jsonify({'error': 'Usuário só pode conter letras, números, ponto, traço e sublinhado.'}), 400
+    idinfo = _verify_google_credential(credential)
+    if idinfo is None:
+        return jsonify({'error': 'Sessão expirada. Tente entrar com Google novamente.'}), 400
+    email, sub = _google_email_and_sub(idinfo)
+    if not email:
+        return jsonify({'error': 'Conta Google sem e-mail verificado.'}), 400
+    user = _google_user(email, sub)
     if user:
         if sub and user.google_id != sub:
             user.google_id = sub
         user.email_verified = True
-        if user.email != email:
-            other = User.query.filter_by(email=email).first()
-            if not other:
-                user.email = email
         db.session.commit()
     else:
-        username = _unique_username(idinfo.get('name') or email.split('@')[0])
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Este nome de usuário já está em uso. Escolha outro.'}), 400
         user = User(username=username, email=email,
                     password=generate_password_hash(secrets.token_urlsafe(32)),
                     email_verified=True, streak_freezes=3, google_id=sub)
