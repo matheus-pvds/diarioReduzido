@@ -1,5 +1,6 @@
 import unittest
 import os
+from datetime import date, datetime
 os.environ["GEMINI_API_KEY"] = "dummy-api-key-for-testing"
 os.environ["POSTGRES_URL"] = "sqlite:///:memory:"
 from unittest.mock import patch, MagicMock
@@ -51,11 +52,13 @@ class TestDiaryPipeline(unittest.TestCase):
         self.assertIn("gemini", model)
 
     @patch('app.fetch_daily_diary')
+    @patch('app.latest_diario_from_api')
     @patch('requests.get')
     @patch('processor.GeminiClient.process_pdf')
-    def test_stage3_full_pipeline_logic(self, mock_process, mock_get, mock_fetch):
+    def test_stage3_full_pipeline_logic(self, mock_process, mock_get, mock_latest, mock_fetch):
         """Test the integration: Detect change -> Process -> Save to DB."""
         # Setup mocks
+        mock_latest.return_value = (3076, datetime(2026, 7, 24))
         mock_fetch.return_value = ("https://example.com/new_diary.pdf", None)
         mock_get.return_value.content = b"pdf content"
         mock_process.return_value = ("Sumário Final", "gemini-test-model")

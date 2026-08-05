@@ -914,6 +914,57 @@ def update_streak(user):
             db.session.add(AppConfig(key='first_365_user_id', value=str(user.id)))
     db.session.commit()
 
+DADOS_ABERTOS_BASE = 'https://dadosabertos-portalfacil.azurewebsites.net/api/diarios'
+DADOS_ABERTOS_CLIENT = '94'
+
+def fetch_diarios_index(year=None):
+    """Consulta a API oficial de Dados Abertos do PortalFácil (Lei 12.527).
+
+    Retorna a lista de edições publicadas no ano: lista de dicts com
+    ``numDiario`` e ``dtPublicacao`` (além de ``numExercicio`` e ``descCaderno``).
+    A API não expõe a URL do PDF — apenas o índice (número + data de publicação).
+    Pagina automaticamente (pageSize máximo suportado = 100).
+    """
+    year = year or datetime.now(BRT).year
+    all_rows = []
+    page = 1
+    while True:
+        url = (f'{DADOS_ABERTOS_BASE}?type=json&idCliente={DADOS_ABERTOS_CLIENT}'
+               f'&page={page}&pageSize=100&numAno={year}')
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if not isinstance(data, list):  # resposta de erro (ex.: 'Erro: Campo(s) obrigatório(s)')
+            return all_rows
+        all_rows.extend(data)
+        if len(data) < 100:
+            break
+        page += 1
+    return all_rows
+
+def _parse_publicacao_dt(value):
+    try:
+        return datetime.strptime(value, '%d/%m/%Y %H:%M:%S').replace(tzinfo=BRT)
+    except (ValueError, TypeError):
+        return None
+
+def latest_diario_from_api():
+    """Retorna ``(numDiario, dt_publicacao)`` da edição mais recente via API
+    oficial. Tenta o ano atual e, se vazio, o ano anterior (virada de ano).
+    Em erro, retorna ``(None, None)`` para o fluxo cair no fallback estático.
+    """
+    now = datetime.now(BRT)
+    for year in (now.year, now.year - 1):
+        try:
+            rows = fetch_diarios_index(year)
+            if not rows:
+                continue
+            latest = max(rows, key=lambda r: _parse_publicacao_dt(r.get('dtPublicacao')) or datetime.min.replace(tzinfo=BRT))
+            return int(latest.get('numDiario') or 0), _parse_publicacao_dt(latest.get('dtPublicacao'))
+        except Exception as e:
+            print(f"Erro na API de Dados Abertos ({year}): {e}")
+    return None, None
+
 def fetch_daily_diary():
     url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     try:
@@ -952,47 +1003,57 @@ def perform_update_logic():
     now = datetime.now(BRT)
     print(f"[{now.strftime('%H:%M:%S')}] Verificando novo diário...")
     last_post = Post.query.order_by(Post.publication_date.desc().nullslast()).first()
-    current_link, pub_date = fetch_daily_diary()
-    if current_link and not Post.query.filter_by(pdf_link=current_link).first():
-        print(f"Novo diário encontrado: {current_link}")
+
+    # Detecção oficial: API de Dados Abertos (fonte confiável de novas edições)
+    api_num, api_dt = latest_diario_from_api()
+    if api_dt is not None:
+        if last_post and last_post.publication_date and api_dt.date() <= last_post.publication_date:
+            return {"status": "no_change", "message": "Nenhum diário novo disponível."}
+        print(f"Nova edição detectada pela API (nº {api_num}, {api_dt.date()}).")
+        current_link, pub_date = fetch_daily_diary()
+        if not current_link or Post.query.filter_by(pdf_link=current_link).first():
+            return {"status": "no_change", "message": "Nenhum diário novo disponível."}
+        effective_date = api_dt.date()
+    else:
+        # Fallback: scraping estático do portal (API indisponível)
+        current_link, pub_date = fetch_daily_diary()
+        if not current_link or Post.query.filter_by(pdf_link=current_link).first():
+            return {"status": "no_change", "message": "Nenhum diário novo disponível."}
+        effective_date = None
+
+    print(f"Novo diário encontrado: {current_link}")
+    try:
+        pdf_content = requests.get(current_link, timeout=30).content
+        gemini = GeminiClient()
+        raw_text, model_name = gemini.process_pdf(pdf_content)
+        title, content, commentary, ai_pub_date = parse_content(raw_text)
+        new_post = Post(
+            title=title, content=content, summary=generate_summary(content),
+            commentary=commentary, model=model_name, pdf_link=current_link,
+            publication_date=ai_pub_date or effective_date or pub_date
+        )
+        db.session.add(new_post)
+        db.session.commit()
+
         try:
-            pdf_content = requests.get(current_link, timeout=30).content
-            gemini = GeminiClient()
-            raw_text, model_name = gemini.process_pdf(pdf_content)
-            title, content, commentary, ai_pub_date = parse_content(raw_text)
-            new_post = Post(
-                title=title, content=content, summary=generate_summary(content),
-                commentary=commentary, model=model_name, pdf_link=current_link,
-                publication_date=ai_pub_date or pub_date
-            )
-            db.session.add(new_post)
-            db.session.commit()
-
-            try:
-                paid_emails = [pu.email for pu in User.query.filter_by(is_paid=True).all()
-                               if pu.email and pu.email_verified]
-                if paid_emails:
-                    send_email(paid_emails, 'Novo Diário Reduzido disponível!',
-                        f'Olá,\n\n'
-                        f'Uma nova edição do Diário Reduzido já está disponível:\n'
-                        f'"{title}"\n\n'
-                        f'Acesse: https://odiarioreduzidogv.vercel.app/\n\n'
-                        f'---\n'
-                        f'Para cancelar o recebimento, entre em contato conosco.')
-            except Exception as e:
-                print(f'Erro ao enviar notificações: {e}')
-
-            return {"status": "success", "message": "Blog atualizado!"}
+            paid_emails = [pu.email for pu in User.query.filter_by(is_paid=True).all()
+                           if pu.email and pu.email_verified]
+            if paid_emails:
+                send_email(paid_emails, 'Novo Diário Reduzido disponível!',
+                    f'Olá,\n\n'
+                    f'Uma nova edição do Diário Reduzido já está disponível:\n'
+                    f'"{title}"\n\n'
+                    f'Acesse: https://odiarioreduzidogv.vercel.app/\n\n'
+                    f'---\n'
+                    f'Para cancelar o recebimento, entre em contato conosco.')
         except Exception as e:
-            print(f"Erro durante o processamento: {e}")
-            db.session.rollback()
-            return {"status": "error", "message": str(e)}
-    return {"status": "no_change", "message": "Nenhum diário novo disponível."}
+            print(f'Erro ao enviar notificações: {e}')
 
-def _ajaxpro_datetime(dt):
-    return {"__type": "System.DateTime", "Year": dt.year, "Month": dt.month,
-            "Day": dt.day, "Hour": dt.hour, "Minute": dt.minute,
-            "Second": dt.second, "Millisecond": dt.microsecond // 1000}
+        return {"status": "success", "message": "Blog atualizado!"}
+    except Exception as e:
+        print(f"Erro durante o processamento: {e}")
+        db.session.rollback()
+        return {"status": "error", "message": str(e)}
 
 def _parse_datatable_js(text):
     m = re.search(r'new Ajax\.Web\.DataTable\(', text)
@@ -1032,23 +1093,38 @@ def _parse_datatable_js(text):
     return [dict(zip(cols, row)) for row in raw_rows]
 
 def search_diary_by_date(target_date):
-    url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     base_pdf = 'https://www.valadares.mg.gov.br'
+    try:
+        # 1. API oficial de Dados Abertos: confirma se há edição na data e obtém o nº
+        rows = fetch_diarios_index(target_date.year)
+        num_diario = None
+        api_date = None
+        for row in rows:
+            dt = _parse_publicacao_dt(row.get('dtPublicacao'))
+            if dt and dt.date() == target_date:
+                num_diario = int(row.get('numDiario') or 0)
+                api_date = dt.date()
+                break
+        if num_diario is None:
+            return None, None
+    except Exception as e:
+        print(f"Erro na API de Dados Abertos: {e}")
+        return None, None
+
+    # 2. Resolve a URL do PDF (GUID opaco) via AjaxPro GetDiario, filtrando pela edição
     try:
         s = requests.Session()
         s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
         resp = s.get(url, timeout=30)
         handler_path = extract_ajaxpro_handler(resp.text)
         if not handler_path:
             raise Exception('AjaxPro handler not found')
         handler_url = urljoin(base_pdf, handler_path)
-        dt_start = datetime.combine(target_date, datetime.min.time(), tzinfo=BRT)
-        dt_end = datetime.combine(target_date, datetime.max.time(), tzinfo=BRT)
         payload = {
             'Page': 0, 'cdCaderno': 1, 'Size': 10,
-            'dtDiario_menor': _ajaxpro_datetime(dt_start),
-            'dtDiario_maior': _ajaxpro_datetime(dt_end),
-            'dsPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
+            'dtDiario_menor': None, 'dtDiario_maior': None,
+            'dsPalavraChave': '', 'nuEdicao': float(num_diario), 'chkPesquisaExata': False,
         }
         body = json.dumps(payload)
         headers = {
@@ -1059,13 +1135,6 @@ def search_diary_by_date(target_date):
         ajax_resp = s.post(handler_url, data=body, headers=headers, timeout=60)
         raw = ajax_resp.text.strip().rstrip(';').strip()
         if raw.startswith('null'):
-            err_part = raw[4:].lstrip(';').strip().rstrip('/*').strip()
-            if err_part:
-                try:
-                    err = json.loads(err_part)
-                    raise Exception(f"AjaxPro error: {err.get('Message', err_part)}")
-                except json.JSONDecodeError:
-                    pass
             return None, None
         rows = _parse_datatable_js(raw)
         for row in rows:
@@ -1075,7 +1144,7 @@ def search_diary_by_date(target_date):
                 if fname:
                     pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
             if pdf_url:
-                return pdf_url, _extract_date_from_url(pdf_url)
+                return pdf_url, api_date or _extract_date_from_url(pdf_url)
         return None, None
     except Exception as e:
         print(f"Erro ao buscar diário por data: {e}")
@@ -1097,6 +1166,14 @@ class _AjaxHandlerParser(HTMLParser):
                 if name == 'src' and val and 'ajaxpro/diel_diel_lis,' in val:
                     self.handler = val.split('?')[0]
 
+def _stdlib_decode(data, headers):
+    charset = 'utf-8'
+    ctype = headers.get('Content-Type', '')
+    m = re.search(r'charset=([\w-]+)', ctype, re.I)
+    if m:
+        charset = m.group(1)
+    return data.decode(charset, errors='replace')
+
 def _stdlib_get(url, headers=None):
     hdrs = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     if headers:
@@ -1105,7 +1182,9 @@ def _stdlib_get(url, headers=None):
     cj = CookieJar()
     from urllib.request import HTTPCookieProcessor, build_opener
     opener = build_opener(HTTPCookieProcessor(cj))
-    return opener.open(req).read().decode('utf-8'), cj
+    resp = opener.open(req)
+    text = _stdlib_decode(resp.read(), resp.headers)
+    return text, cj
 
 def _stdlib_post(url, data, headers=None):
     hdrs = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1116,12 +1195,47 @@ def _stdlib_post(url, data, headers=None):
     cj = CookieJar()
     from urllib.request import HTTPCookieProcessor, build_opener
     opener = build_opener(HTTPCookieProcessor(cj))
-    return opener.open(req).read().decode('utf-8')
+    resp = opener.open(req)
+    return _stdlib_decode(resp.read(), resp.headers)
+
+def fetch_diarios_index_stdlib(year):
+    all_rows = []
+    page = 1
+    while True:
+        url = (f'{DADOS_ABERTOS_BASE}?type=json&idCliente={DADOS_ABERTOS_CLIENT}'
+               f'&page={page}&pageSize=100&numAno={year}')
+        text, _ = _stdlib_get(url)
+        data = json.loads(text)
+        if not isinstance(data, list):
+            return all_rows
+        all_rows.extend(data)
+        if len(data) < 100:
+            break
+        page += 1
+    return all_rows
 
 def search_diary_by_date_stdlib(target_date):
-    url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
     base_pdf = 'https://www.valadares.mg.gov.br'
     try:
+        # 1. API oficial de Dados Abertos: confirma a edição na data e obtém o nº
+        rows = fetch_diarios_index_stdlib(target_date.year)
+        num_diario = None
+        api_date = None
+        for row in rows:
+            dt = _parse_publicacao_dt(row.get('dtPublicacao'))
+            if dt and dt.date() == target_date:
+                num_diario = int(row.get('numDiario') or 0)
+                api_date = dt.date()
+                break
+        if num_diario is None:
+            return None, None
+    except Exception as e:
+        print(f"Erro (stdlib API): {e}")
+        return None, None
+
+    # 2. Resolve a URL do PDF (GUID opaco) via AjaxPro GetDiario, filtrando pela edição
+    try:
+        url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
         html, _ = _stdlib_get(url)
         parser = _AjaxHandlerParser()
         parser.feed(html)
@@ -1129,13 +1243,10 @@ def search_diary_by_date_stdlib(target_date):
         if not handler_path:
             raise Exception('AjaxPro handler not found')
         handler_url = urljoin(base_pdf, handler_path)
-        dt_start = datetime.combine(target_date, datetime.min.time(), tzinfo=BRT)
-        dt_end = datetime.combine(target_date, datetime.max.time(), tzinfo=BRT)
         payload = {
             'Page': 0, 'cdCaderno': 1, 'Size': 10,
-            'dtDiario_menor': _ajaxpro_datetime(dt_start),
-            'dtDiario_maior': _ajaxpro_datetime(dt_end),
-            'dsPalavraChave': '', 'nuEdicao': -1.0, 'chkPesquisaExata': False,
+            'dtDiario_menor': None, 'dtDiario_maior': None,
+            'dsPalavraChave': '', 'nuEdicao': float(num_diario), 'chkPesquisaExata': False,
         }
         body = json.dumps(payload)
         headers = {'X-AjaxPro-Method': 'GetDiario', 'Referer': url}
@@ -1151,7 +1262,7 @@ def search_diary_by_date_stdlib(target_date):
                 if fname:
                     pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
             if pdf_url:
-                return pdf_url, _extract_date_from_url(pdf_url)
+                return pdf_url, api_date or _extract_date_from_url(pdf_url)
         return None, None
     except Exception as e:
         print(f"Erro (stdlib): {e}")
