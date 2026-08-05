@@ -59,7 +59,8 @@ for r in rows[:2]:
 
 # Test search function
 print("\n=== Testing search_diary_by_date ===")
-result = search_diary_by_date(date(2026, 7, 24))
+with app.app_context():
+    result = search_diary_by_date(date(2026, 7, 24))
 print(f"24/07: {result}")
 
 # Test fetch_daily_diary
@@ -69,10 +70,6 @@ print(f"Today's PDF: {pdf}")
 
 # Test search function
 print("\n=== Testing search_diary_by_date ===")
-result = search_diary_by_date(date(2026, 7, 24))
+with app.app_context():
+    result = search_diary_by_date(date(2026, 7, 24))
 print(f"24/07: {result}")
-
-# Test fetch_daily_diary
-print("\n=== Testing fetch_daily_diary ===")
-pdf = fetch_daily_diary()
-print(f"Today's PDF: {pdf}")

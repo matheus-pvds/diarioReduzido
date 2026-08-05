@@ -87,6 +87,17 @@ class AppConfig(db.Model):
     value = db.Column(db.String(500))
     timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
 
+class DiarioGuid(db.Model):
+    """Cache numDiario → GUID (nmArquivo) do PDF, aprendido via AjaxPro GetDiario.
+
+    Permite baixar edições já conhecidas direto por ``abrir_arquivo.aspx``,
+    sem nova chamada AjaxPro por busca.
+    """
+    num_diario = db.Column(db.Integer, primary_key=True)
+    guid = db.Column(db.String(64), nullable=False)
+    publicado = db.Column(db.Date, nullable=True)
+    updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(BRT))
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -917,6 +928,45 @@ def update_streak(user):
 DADOS_ABERTOS_BASE = 'https://dadosabertos-portalfacil.azurewebsites.net/api/diarios'
 DADOS_ABERTOS_CLIENT = '94'
 
+DIARIO_BASE = 'https://www.valadares.mg.gov.br'
+DIARIO_PAGE_URL = f'{DIARIO_BASE}/diario-eletronico/caderno/governador-valadares-mg/1'
+
+def _pdf_url_from_guid(guid):
+    """Endpoint de download do PDF a partir do GUID (nmArquivo na file table)."""
+    if not guid:
+        return None
+    return f'{DIARIO_BASE}/abrir_arquivo.aspx?cdLocal=12&arquivo={guid}.pdf'
+
+def _get_guid_cache(num_diario):
+    """Retorna ``(guid, publicado)`` do cache, ou ``(None, None)`` se não houver."""
+    if not num_diario:
+        return None, None
+    try:
+        row = db.session.get(DiarioGuid, num_diario)
+    except Exception:
+        return None, None
+    return (row.guid, row.publicado) if row else (None, None)
+
+def _set_guid_cache(num_diario, guid, publicado):
+    """Grava (ou atualiza) o GUID no cache. Best-effort: falhas (ex.: fora de
+    contexto de aplicação) apenas logam e não interrompem o fluxo."""
+    try:
+        row = db.session.get(DiarioGuid, num_diario)
+        if row is None:
+            row = DiarioGuid(num_diario=num_diario, guid=guid, publicado=publicado)
+            db.session.add(row)
+        else:
+            row.guid = guid
+            if publicado:
+                row.publicado = publicado
+        db.session.commit()
+    except Exception as e:
+        print(f'Erro ao salvar cache GUID: {e}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
 def fetch_diarios_index(year=None):
     """Consulta a API oficial de Dados Abertos do PortalFácil (Lei 12.527).
 
@@ -1010,7 +1060,17 @@ def perform_update_logic():
         if last_post and last_post.publication_date and api_dt.date() <= last_post.publication_date:
             return {"status": "no_change", "message": "Nenhum diário novo disponível."}
         print(f"Nova edição detectada pela API (nº {api_num}, {api_dt.date()}).")
-        current_link, pub_date = fetch_daily_diary()
+        # Download primário: GUID (cache/AjaxPro) → abrir_arquivo, sem scraping.
+        current_link = None
+        pub_date = None
+        if api_num:
+            guid, guid_date = _resolve_guid(api_num)
+            if guid:
+                current_link = _pdf_url_from_guid(guid)
+                pub_date = guid_date
+        if not current_link:
+            # Último recurso: scraping estático do portal
+            current_link, pub_date = fetch_daily_diary()
         if not current_link or Post.query.filter_by(pdf_link=current_link).first():
             return {"status": "no_change", "message": "Nenhum diário novo disponível."}
         effective_date = api_dt.date()
@@ -1092,10 +1152,179 @@ def _parse_datatable_js(text):
     raw_rows = json.loads(rows_str)
     return [dict(zip(cols, row)) for row in raw_rows]
 
+def _parse_datatable_js_full(text):
+    """Parsa o DataTable do AjaxPro preservando as datas (colunas System.DateTime).
+
+    Retorna ``(cols, rows, total_rows)``. As datas viram ``datetime`` aware (BRT).
+    """
+    m = re.search(r'new Ajax\.Web\.DataTable\(', text)
+    if not m:
+        return [], [], 0
+    start = m.end()
+    depth = 0
+    for i, ch in enumerate(text[start:], start):
+        if ch == '[':
+            depth += 1
+        elif ch == ']':
+            depth -= 1
+            if depth == 0:
+                cols_end = i + 1
+                break
+    else:
+        return [], [], 0
+    rest = text[cols_end:].lstrip().lstrip(',').lstrip()
+    if not rest.startswith('['):
+        return [], [], 0
+    depth = 0
+    for i, ch in enumerate(rest):
+        if ch == '[':
+            depth += 1
+        elif ch == ']':
+            depth -= 1
+            if depth == 0:
+                rows_str = rest[:i + 1]
+                break
+    else:
+        return [], [], 0
+    cols_text = text[start:cols_end]
+    cols = re.findall(r'\["(\w+)","[^"]+"\]', cols_text)
+
+    def _date_to_iso(match):
+        nums = [int(x) for x in re.findall(r'\d+', match.group(0))]
+        if len(nums) >= 3:
+            try:
+                hh = nums[3] if len(nums) > 3 else 0
+                mm = nums[4] if len(nums) > 4 else 0
+                ss = nums[5] if len(nums) > 5 else 0
+                return f'"{datetime(nums[0], nums[1] + 1, nums[2], hh, mm, ss).isoformat()}"'
+            except ValueError:
+                pass
+        return 'null'
+
+    rows_str = re.sub(r'new Date\([^)]+\)', _date_to_iso, rows_str)
+    raw_rows = json.loads(rows_str)
+    rows = []
+    for row in raw_rows:
+        d = {}
+        for c, v in zip(cols, row):
+            if isinstance(v, str):
+                try:
+                    d[c] = datetime.fromisoformat(v).replace(tzinfo=BRT)
+                    continue
+                except ValueError:
+                    pass
+            d[c] = v
+        rows.append(d)
+    total = int(rows[0].get('TOTAL_ROWS') or 0) if rows else 0
+    return cols, rows, total
+
+def _get_diario_batch(page, size, num_diario=None):
+    """Chama AjaxPro GetDiario (requests) para um bloco de edições."""
+    s = requests.Session()
+    s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+    resp = s.get(DIARIO_PAGE_URL, timeout=30)
+    handler_path = extract_ajaxpro_handler(resp.text)
+    if not handler_path:
+        return None
+    handler_url = urljoin(DIARIO_BASE, handler_path)
+    payload = {
+        'Page': page, 'cdCaderno': 1, 'Size': size,
+        'dtDiario_menor': None, 'dtDiario_maior': None,
+        'dsPalavraChave': '', 'nuEdicao': float(num_diario) if num_diario else None,
+        'chkPesquisaExata': False,
+    }
+    headers = {
+        'X-AjaxPro-Method': 'GetDiario',
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Referer': DIARIO_PAGE_URL,
+    }
+    ajax_resp = s.post(handler_url, data=json.dumps(payload), headers=headers, timeout=60)
+    return ajax_resp.text.strip().rstrip(';').strip()
+
+def _resolve_guid_via_ajaxpro(num_diario):
+    """Resolve o GUID (NMARQUIVO) de uma edição via AjaxPro GetDiario."""
+    raw = _get_diario_batch(0, 10, num_diario)
+    if not raw or raw.startswith('null'):
+        return None, None
+    _, rows, _ = _parse_datatable_js_full(raw)
+    for row in rows:
+        guid = row.get('NMARQUIVO', '')
+        if guid:
+            publicado = row.get('DTPUBLICACAO')
+            if isinstance(publicado, datetime):
+                publicado = publicado.date()
+            return guid, publicado
+    return None, None
+
+def _resolve_guid(num_diario, use_stdlib=False):
+    """Resolve o GUID do PDF de uma edição.
+
+    Fonte primária: cache no banco (``DiarioGuid``). Fallback: AjaxPro
+    GetDiario (requests ou stdlib). Aprendido o GUID, ele é gravado no cache
+    para as próximas buscas não precisarem mais do AjaxPro.
+    """
+    if not num_diario:
+        return None, None
+    guid, publicado = _get_guid_cache(num_diario)
+    if guid:
+        return guid, publicado
+    if use_stdlib:
+        guid, publicado = _resolve_guid_via_ajaxpro_stdlib(num_diario)
+    else:
+        guid, publicado = _resolve_guid_via_ajaxpro(num_diario)
+    if guid:
+        _set_guid_cache(num_diario, guid, publicado)
+    return guid, publicado
+
+def refresh_diario_guid_cache(use_stdlib=False, stop_at_num=1):
+    """Resolve e grava no banco o GUID de todas as edições até ``stop_at_num``
+    (padrão: edição 1, ou seja, todo o histórico, que hoje começa em 2014 — o
+    mais próximo possível do ano 2000 disponível no portal).
+
+    Pagina pelo GetDiario (Size máx. 10) e guarda numDiario → guid. Usado como
+    último recurso para acelerar downloads posteriores.
+    """
+    page = 0
+    size = 10
+    total = None
+    done = 0
+    while True:
+        if use_stdlib:
+            raw = _get_diario_batch_stdlib(page, size)
+        else:
+            raw = _get_diario_batch(page, size)
+        if not raw or raw.startswith('null'):
+            break
+        _, rows, page_total = _parse_datatable_js_full(raw)
+        if total is None:
+            total = page_total or 0
+        if not rows:
+            break
+        for row in rows:
+            num_diario = int(row.get('NUEDICAO') or 0)
+            if num_diario < stop_at_num:
+                continue
+            guid = row.get('NMARQUIVO', '')
+            if not guid:
+                continue
+            publicado = row.get('DTPUBLICACAO')
+            if isinstance(publicado, datetime):
+                publicado = publicado.date()
+            _set_guid_cache(num_diario, guid, publicado)
+            done += 1
+        page += 1
+        if total and page * size >= total:
+            break
+        time.sleep(0.25)
+    print(f'Refresh GUID cache: {done} edições resolvidas.')
+    return done
+
 def search_diary_by_date(target_date):
-    base_pdf = 'https://www.valadares.mg.gov.br'
+    """Busca o diário da data usando como fonte primária o índice JSON da API
+    oficial de Dados Abertos (numDiario) + cache de GUIDs; AjaxPro apenas como
+    fallback para edições ainda não conhecidas. Retorna ``(pdf_url, publicacao)``.
+    """
     try:
-        # 1. API oficial de Dados Abertos: confirma se há edição na data e obtém o nº
         rows = fetch_diarios_index(target_date.year)
         num_diario = None
         api_date = None
@@ -1111,44 +1340,11 @@ def search_diary_by_date(target_date):
         print(f"Erro na API de Dados Abertos: {e}")
         return None, None
 
-    # 2. Resolve a URL do PDF (GUID opaco) via AjaxPro GetDiario, filtrando pela edição
-    try:
-        s = requests.Session()
-        s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
-        url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
-        resp = s.get(url, timeout=30)
-        handler_path = extract_ajaxpro_handler(resp.text)
-        if not handler_path:
-            raise Exception('AjaxPro handler not found')
-        handler_url = urljoin(base_pdf, handler_path)
-        payload = {
-            'Page': 0, 'cdCaderno': 1, 'Size': 10,
-            'dtDiario_menor': None, 'dtDiario_maior': None,
-            'dsPalavraChave': '', 'nuEdicao': float(num_diario), 'chkPesquisaExata': False,
-        }
-        body = json.dumps(payload)
-        headers = {
-            'X-AjaxPro-Method': 'GetDiario',
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Referer': url,
-        }
-        ajax_resp = s.post(handler_url, data=body, headers=headers, timeout=60)
-        raw = ajax_resp.text.strip().rstrip(';').strip()
-        if raw.startswith('null'):
-            return None, None
-        rows = _parse_datatable_js(raw)
-        for row in rows:
-            pdf_url = row.get('URLABRIRARQUIVO', '')
-            if not pdf_url:
-                fname = row.get('NMARQUIVO', '') + row.get('NMEXTENSAOARQUIVO', '')
-                if fname:
-                    pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
-            if pdf_url:
-                return pdf_url, api_date or _extract_date_from_url(pdf_url)
+    guid, guid_date = _resolve_guid(num_diario)
+    pdf_url = _pdf_url_from_guid(guid)
+    if not pdf_url:
         return None, None
-    except Exception as e:
-        print(f"Erro ao buscar diário por data: {e}")
-        return None, None
+    return pdf_url, api_date or guid_date or _extract_date_from_url(pdf_url)
 
 # --- stdlib-only version (no requests/bs4) ---
 
@@ -1214,10 +1410,46 @@ def fetch_diarios_index_stdlib(year):
         page += 1
     return all_rows
 
+def _get_diario_batch_stdlib(page, size, num_diario=None):
+    """Chama AjaxPro GetDiario (stdlib, sem requests/bs4) para um bloco."""
+    html, _ = _stdlib_get(DIARIO_PAGE_URL)
+    parser = _AjaxHandlerParser()
+    parser.feed(html)
+    if not parser.handler:
+        return None
+    handler_url = urljoin(DIARIO_BASE, parser.handler)
+    payload = {
+        'Page': page, 'cdCaderno': 1, 'Size': size,
+        'dtDiario_menor': None, 'dtDiario_maior': None,
+        'dsPalavraChave': '', 'nuEdicao': float(num_diario) if num_diario else None,
+        'chkPesquisaExata': False,
+    }
+    raw = _stdlib_post(handler_url, json.dumps(payload),
+                       {'X-AjaxPro-Method': 'GetDiario', 'Referer': DIARIO_PAGE_URL})
+    return raw.strip().rstrip(';').strip()
+
+def _resolve_guid_via_ajaxpro_stdlib(num_diario):
+    """Resolve o GUID (NMARQUIVO) de uma edição via AjaxPro (stdlib)."""
+    raw = _get_diario_batch_stdlib(0, 10, num_diario)
+    if not raw or raw.startswith('null'):
+        return None, None
+    _, rows, _ = _parse_datatable_js_full(raw)
+    for row in rows:
+        guid = row.get('NMARQUIVO', '')
+        if guid:
+            publicado = row.get('DTPUBLICACAO')
+            if isinstance(publicado, datetime):
+                publicado = publicado.date()
+            return guid, publicado
+    return None, None
+
 def search_diary_by_date_stdlib(target_date):
-    base_pdf = 'https://www.valadares.mg.gov.br'
+    """Versão stdlib (sem requests/bs4) de ``search_diary_by_date``.
+
+    Fonte primária: índice JSON da API oficial + cache de GUIDs no banco;
+    AjaxPro GetDiario apenas como fallback para edições desconhecidas.
+    """
     try:
-        # 1. API oficial de Dados Abertos: confirma a edição na data e obtém o nº
         rows = fetch_diarios_index_stdlib(target_date.year)
         num_diario = None
         api_date = None
@@ -1233,40 +1465,11 @@ def search_diary_by_date_stdlib(target_date):
         print(f"Erro (stdlib API): {e}")
         return None, None
 
-    # 2. Resolve a URL do PDF (GUID opaco) via AjaxPro GetDiario, filtrando pela edição
-    try:
-        url = 'https://www.valadares.mg.gov.br/diario-eletronico/caderno/governador-valadares-mg/1'
-        html, _ = _stdlib_get(url)
-        parser = _AjaxHandlerParser()
-        parser.feed(html)
-        handler_path = parser.handler
-        if not handler_path:
-            raise Exception('AjaxPro handler not found')
-        handler_url = urljoin(base_pdf, handler_path)
-        payload = {
-            'Page': 0, 'cdCaderno': 1, 'Size': 10,
-            'dtDiario_menor': None, 'dtDiario_maior': None,
-            'dsPalavraChave': '', 'nuEdicao': float(num_diario), 'chkPesquisaExata': False,
-        }
-        body = json.dumps(payload)
-        headers = {'X-AjaxPro-Method': 'GetDiario', 'Referer': url}
-        raw = _stdlib_post(handler_url, body, headers)
-        raw = raw.strip().rstrip(';').strip()
-        if raw.startswith('null'):
-            return None, None
-        rows = _parse_datatable_js(raw)
-        for row in rows:
-            pdf_url = row.get('URLABRIRARQUIVO', '')
-            if not pdf_url:
-                fname = row.get('NMARQUIVO', '') + row.get('NMEXTENSAOARQUIVO', '')
-                if fname:
-                    pdf_url = f'{base_pdf}/abrir_arquivo.aspx?cdLocal=12&arquivo={fname}'
-            if pdf_url:
-                return pdf_url, api_date or _extract_date_from_url(pdf_url)
+    guid, guid_date = _resolve_guid(num_diario, use_stdlib=True)
+    pdf_url = _pdf_url_from_guid(guid)
+    if not pdf_url:
         return None, None
-    except Exception as e:
-        print(f"Erro (stdlib): {e}")
-        return None, None
+    return pdf_url, api_date or guid_date or _extract_date_from_url(pdf_url)
 
 @app.route('/')
 def index():
@@ -1338,6 +1541,25 @@ def api_perform_check():
         if last_check:
             last_check.value = now.isoformat()
             db.session.commit()
+
+@app.route('/api/refresh-guid-cache', methods=['POST'])
+@login_required
+def api_refresh_guid_cache():
+    """Último recurso: resolve e grava no banco o GUID de todas as edições
+    (numDiario → guid), paginando o AjaxPro GetDiario até a edição 1."""
+    if not validate_csrf():
+        return jsonify({'error': 'Token inválido.'}), 400
+    user = get_current_user()
+    if user.username != 'admin':
+        return jsonify({'error': 'Acesso restrito.'}), 403
+    try:
+        stop_at = request.args.get('stop_at')
+        stop_at_num = int(stop_at) if stop_at else 1
+        done = refresh_diario_guid_cache(use_stdlib=request.args.get('stdlib') == '1',
+                                         stop_at_num=stop_at_num)
+        return jsonify({'status': 'success', 'resolved': done})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/status')
 def api_status():

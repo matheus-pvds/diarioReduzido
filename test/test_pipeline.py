@@ -53,12 +53,14 @@ class TestDiaryPipeline(unittest.TestCase):
 
     @patch('app.fetch_daily_diary')
     @patch('app.latest_diario_from_api')
+    @patch('app._resolve_guid')
     @patch('requests.get')
     @patch('processor.GeminiClient.process_pdf')
-    def test_stage3_full_pipeline_logic(self, mock_process, mock_get, mock_latest, mock_fetch):
+    def test_stage3_full_pipeline_logic(self, mock_process, mock_get, mock_resolve, mock_latest, mock_fetch):
         """Test the integration: Detect change -> Process -> Save to DB."""
         # Setup mocks
         mock_latest.return_value = (3076, datetime(2026, 7, 24))
+        mock_resolve.return_value = (None, None)
         mock_fetch.return_value = ("https://example.com/new_diary.pdf", None)
         mock_get.return_value.content = b"pdf content"
         mock_process.return_value = ("Sumário Final", "gemini-test-model")
@@ -121,6 +123,57 @@ class TestDiaryPipeline(unittest.TestCase):
         deleted = dedupe_posts_by_link()
         self.assertEqual(deleted, 1)
         self.assertEqual(Post.query.count(), 1)
+
+    def test_pdf_url_from_guid(self):
+        from app import _pdf_url_from_guid
+        self.assertEqual(
+            _pdf_url_from_guid('{7E1BEEEA-CDCC-A02E-ACB2-56ABB2A3E5EA}'),
+            'https://www.valadares.mg.gov.br/abrir_arquivo.aspx?cdLocal=12&arquivo={7E1BEEEA-CDCC-A02E-ACB2-56ABB2A3E5EA}.pdf'
+        )
+        self.assertIsNone(_pdf_url_from_guid(None))
+
+    def test_parse_datatable_js_full_dates(self):
+        from app import _parse_datatable_js_full
+        raw = ('new Ajax.Web.DataTable([["NUEDICAO","System.Decimal"],["DTPUBLICACAO","System.DateTime"],'
+               '["NMARQUIVO","System.String"]],[[2922,new Date(2026,0,5,17,46,36,947),"{ABC-1}"]]);/*')
+        _, rows, total = _parse_datatable_js_full(raw)
+        self.assertEqual(total, 0)
+        self.assertEqual(rows[0]['NUEDICAO'], 2922)
+        self.assertEqual(rows[0]['NMARQUIVO'], '{ABC-1}')
+        self.assertEqual(rows[0]['DTPUBLICACAO'].date(), date(2026, 1, 5))
+
+    def test_resolve_guid_uses_cache(self):
+        from app import _resolve_guid, DiarioGuid
+        db.session.add(DiarioGuid(num_diario=3076, guid='{CACHED-GUID}', publicado=date(2026, 8, 4)))
+        db.session.commit()
+        guid, pub = _resolve_guid(3076)
+        self.assertEqual(guid, '{CACHED-GUID}')
+        self.assertEqual(pub, date(2026, 8, 4))
+
+    @patch('app.fetch_diarios_index')
+    @patch('app._resolve_guid')
+    def test_search_primary_flow_uses_api_json_and_guid(self, mock_resolve, mock_fetch):
+        from app import search_diary_by_date
+        mock_fetch.return_value = [
+            {'numExercicio': '2026', 'numDiario': '2922', 'descCaderno': 'Governador Valadares/MG',
+             'dtPublicacao': '05/01/2026 17:46:36'},
+        ]
+        mock_resolve.return_value = ('{GUID-ABC}', date(2026, 1, 5))
+        url, pub = search_diary_by_date(date(2026, 1, 5))
+        self.assertEqual(
+            url,
+            'https://www.valadares.mg.gov.br/abrir_arquivo.aspx?cdLocal=12&arquivo={GUID-ABC}.pdf'
+        )
+        self.assertEqual(pub, date(2026, 1, 5))
+        mock_resolve.assert_called_once_with(2922)
+
+    @patch('app.fetch_diarios_index')
+    @patch('app._resolve_guid')
+    def test_search_returns_none_without_edition(self, mock_resolve, mock_fetch):
+        from app import search_diary_by_date
+        mock_fetch.return_value = []
+        self.assertEqual(search_diary_by_date(date(2026, 1, 5)), (None, None))
+        mock_resolve.assert_not_called()
 
 if __name__ == '__main__':
     unittest.main()
